@@ -240,6 +240,19 @@ uint8_t Machine::read_character() {
     characters.erase(characters.begin());
     return character;
 }
+void Machine::type_key(uint8_t scan) {
+    const uint8_t control[] = {0, 27, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 9};
+    if (scan < 16 && control[scan])
+        type(control[scan]);
+    else if (scan == 0x1c)
+        type(13);
+    else if (scan == 0x39)
+        type(' ');
+    else if ((scan >= 0x3b && scan <= 0x44) || (scan >= 0x47 && scan <= 0x53)) {
+        type(0);
+        type(scan);
+    }
+}
 Image Machine::frame() const {
     Image image;
     image.width = 320;

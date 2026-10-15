@@ -21,9 +21,9 @@ cmake --build --preset default
 
 | Preset | Builds | Build tree |
 |---|---|---|
-| `default` | Player, asset packer, `stone_tests` | `build/cmake` |
+| `default` | Player, asset packer, solver, `stone_tests` | `build/cmake` |
 | `ninja` | The same with Ninja (GCC or Clang) | `build/cmake-ninja` |
-| `core` | Core library, asset packer and `stone_tests`; no SDL | `build/cmake-core` |
+| `core` | Core library, asset packer, solver and `stone_tests`; no SDL | `build/cmake-core` |
 | `wasm` | The web version (below) | `build/cmake-wasm` |
 | `test` | `default` plus the comparison tests (see Tests) | `build/cmake` |
 
@@ -38,7 +38,7 @@ Visual Studio installs when none is on `PATH`:
 ```
 
 Every build writes to `build/`: `stone_play` (`.exe` on Windows),
-`stone_assets`, `stoneage.dat` (the packed `assets/`), `LICENSE`,
+`stone_assets`, `stone_solve`, `stoneage.dat` (the packed `assets/`), `LICENSE`,
 `LEGAL.md`, the `licenses/` folder and, on Windows, `SDL3.dll`.
 
 ## Run
@@ -58,7 +58,7 @@ stone_play [package] [--free] [--original] [--fresh] [--ticks N]
 | `--free` | Ignore the original game's files for this run. |
 | `--fresh` | Play as if nothing were saved: no `STONEAGE.ENH`, no scores. |
 | `--ticks N` | Scripted run: stop after N ticks (70 a second). Saves nothing. |
-| `--keys FILE` | Keys for a scripted run: lines `tick scan` (scan byte in hex, 80h added for a release) or `tick tap x y` (a tap at that pixel of the 320x200 picture). |
+| `--keys FILE` | Keys for a scripted run: lines `tick scan` (scan byte in hex, 80h added for a release; a press is also typed while the game reads characters), `tick tap x y` (a tap at that pixel of the 320x200 picture) or `tick text WORD` (typed, as on the password screen). |
 | `--screenshot FILE.bmp` | Write the last frame when the run ends. |
 
 Files written beside the player:
@@ -76,6 +76,29 @@ format of `assets/levels.txt` with 1 to 100 levels (ENHANCEMENTS.md, E7).
 L in the map selector lists them.
 
 Audio-device errors are reported on the console; the game goes on silently.
+
+### The solver
+
+`stone_solve` finds the fastest way through levels and proves each solution
+by playing it in the game without a window (ENHANCEMENTS.md, E8):
+
+```
+stone_solve [--keys DIR] [--states N] [--no-proof] [--package FILE]
+            LEVELS.txt [LEVEL...]
+```
+
+```sh
+build/stone_solve assets/levels.txt 1 34 63           # three free levels
+build/stone_solve assets/levels.txt                   # all 100, about 1.5 minutes
+build/stone_solve --keys solutions levels/mine.txt    # a pack, writing the solutions
+```
+
+Without LEVEL it solves every level of the file. `--package` is the asset
+package the proof plays with (`stoneage.dat` beside `stone_solve`).
+`--keys DIR` writes each proved solution as `DIR/levelNNN.keys`, which
+`stone_play --fresh --free --original --ticks N --keys FILE` plays again for
+the free set (it prints N). The exit code is 2 when a level is not solvable
+in time or a proof fails.
 
 ### The original game
 
@@ -158,8 +181,13 @@ scramble. The scramble deters casual editing; it is not encryption.
 ## Tests
 
 - `stone_tests` (`tests/`) checks `STONEAGE.ENH` reading and writing, the
-  zip code and reading and writing level packs. It needs nothing of the original and is built with every native
-  preset.
+  zip code, reading and writing level packs, and the solver on small
+  boards. It needs nothing of the original and is built with every native
+  preset. Given the asset package as its argument, as CTest does, it also
+  proves the solver's solutions in the game.
+- `solver_free_set` solves and proves all 100 free levels with
+  `stone_solve`, about a minute and a half in a release build. It has the
+  label `long`: `ctest -LE long` leaves it out, `ctest -L long` runs only it.
 - With the player, CTest also runs two scripted taps of the free set
   (`tests/taps/`) and compares their screenshots by SHA-256
   (`tests/screenshot_test.cmake`).
@@ -189,6 +217,7 @@ and `dummy` audio drivers, so scripted runs and `stone_tests` work there.
 | `audio.*` | Synthesis with ymfm's YM3812 emulator (`third_party/ymfm/`, one change). |
 | `assets.*`, `content.*`, `package.*`, `assets_main.cpp` | The editable assets, the package format and `stone_assets`. |
 | `levels.*` | Level sets as text: `levels.txt` and level packs. |
+| `solver.*`, `solve_main.cpp` | The solver and its proof in the game (E8), and `stone_solve`. |
 | `selector.cpp`, `packs.cpp`, `stats.cpp`, `lines.cpp`, `settings.*` | Enhanced mode: the map selector, its list of level sets, statistics, the line cursor and `STONEAGE.ENH`. |
 | `play.cpp`, `host_*.hpp`, `gamepad.*` | The SDL host: window, keys, gamepad, touch, audio, files. Nothing else in `src/` uses SDL. |
 | `zip.*` | Zip reading and writing, for the web page's saves. |

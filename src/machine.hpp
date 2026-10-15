@@ -135,6 +135,10 @@ public:
     // arrive as 0 followed by the scan code, as DOS delivers them.
     bool reads_characters() const { return !keyboard_installed; }
     void type(uint8_t character) { characters.push_back(character); }
+    // A key sent as a scan byte (a button of the page, a tap, a scripted
+    // key) typed as DOS gives it: Esc, Backspace, Tab, Enter and Space as
+    // their characters, function and cursor keys as 0 and the scan code.
+    void type_key(uint8_t scan);
     std::string text(uint16_t segment, uint16_t offset) const;
     uint16_t ax = 0, bx = 0, cx = 0, dx = 0, si = 0, di = 0, bp = 0, sp = 0;
     uint16_t cs = 0, ds = 0, es = 0, ss = 0;

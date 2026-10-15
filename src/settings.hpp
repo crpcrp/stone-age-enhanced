@@ -64,6 +64,17 @@ public:
     // parts it beat: `faster`, `higher`, both or 0.
     static const unsigned faster = 1, higher = 2;
     unsigned improve_best(uint32_t levels, unsigned level, unsigned ticks, unsigned points);
+    // `par <crc> <level> <ticks>|unsolvable|unknown`: what the solver found
+    // for a map of that level set (ENHANCEMENTS.md, E8): the fewest ticks to
+    // clear it, that it cannot be cleared in its time, or that the search
+    // stopped at its limit. `none` without the line or with a bad value.
+    struct Par {
+        enum Kind { none, solvable, unsolvable, unknown };
+        Kind kind = none;
+        unsigned ticks = 0; // solvable only
+    };
+    Par par(uint32_t levels, unsigned level) const;
+    void set_par(uint32_t levels, unsigned level, const Par& par);
     // `stats <crc> <level> <attempts> <clears> <lives lost> <give-ups> <ticks>`:
     // what has happened on a map of that level set (ENHANCEMENTS.md, E4).
     // Every attempt ends in one of the other three. All 0 without the line

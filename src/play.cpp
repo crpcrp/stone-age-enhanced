@@ -14,8 +14,10 @@
 // Enhanced mode follows the setting saved in STONEAGE.ENH (on without one);
 // --original turns it off for this run without changing the saved setting.
 // --keys gives a scripted run (--ticks) its keys: lines `tick scan`, the scan
-// byte in hex (80h added for a release) latched from that tick on, or `tick
-// tap x y`, a tap at that pixel of the game's picture, as a finger's.
+// byte in hex (80h added for a release) latched from that tick on and typed
+// while the game reads characters, `tick tap x y`, a tap at that pixel of the
+// game's picture, as a finger's, or `tick text WORD`, typed. stone_solve
+// writes such files (ENHANCEMENTS.md, E8). A scripted run looks for no pars.
 // --fresh plays as if nothing were saved yet: no STONEAGE.ENH, no scores.
 // A gamepad and taps on the screen's lines send keys too (ENHANCEMENTS.md,
 // E6); in the browser the page's buttons send them (stone_key, stone_type).
@@ -47,6 +49,7 @@
 #include "host_sdl.hpp"
 #include "keyboard.hpp"
 #include "machine.hpp"
+#include "solver.hpp"
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
@@ -62,6 +65,9 @@
 #include <emscripten.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#else
+#include <mutex>
+#include <thread>
 #endif
 
 namespace {
@@ -87,20 +93,6 @@ void type_key(stone::Machine& machine, const SDL_KeyboardEvent& key) {
              (key.scancode >= SDL_SCANCODE_INSERT && key.scancode <= SDL_SCANCODE_UP)) {
         machine.type(0); // extended key: zero, then the scan code
         machine.type(stone::dos_scan(key.scancode));
-    }
-}
-// The same for a key sent as a scan byte, by a button of the page or a tap.
-void type_scan(stone::Machine& machine, uint8_t code) {
-    const uint8_t control[] = {0, 27, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 9};
-    if (code < 16 && control[code])
-        machine.type(control[code]);
-    else if (code == 0x1c)
-        machine.type(13);
-    else if (code == 0x39)
-        machine.type(' ');
-    else if ((code >= 0x3b && code <= 0x44) || (code >= 0x47 && code <= 0x53)) {
-        machine.type(0);
-        machine.type(code);
     }
 }
 void type_text(stone::Machine& machine, const char* utf8) {
@@ -183,6 +175,59 @@ std::string find_original_package(const std::string& base) {
 #endif
 }
 
+#ifndef __EMSCRIPTEN__
+// Not original (ENHANCEMENTS.md, E8): maps of the level set played that have
+// no par in STONEAGE.ENH yet, solved one after another on a thread of their
+// own while the game goes on. The browser has no threads: there a map has a
+// par only when an imported STONEAGE.ENH brings one.
+class ParFinder {
+public:
+    struct Found {
+        unsigned level;
+        stone::Settings::Par par;
+    };
+    ParFinder(const stone::LevelSet& set, const std::vector<unsigned>& levels)
+        : thread([this, set, levels] { run(set, levels); }) {}
+    ~ParFinder() {
+        stop = true;
+        thread.join();
+    }
+    ParFinder(const ParFinder&) = delete;
+    ParFinder& operator=(const ParFinder&) = delete;
+    // What has been found since the last call.
+    std::vector<Found> take() {
+        std::lock_guard<std::mutex> lock(mutex);
+        std::vector<Found> taken;
+        taken.swap(found);
+        return taken;
+    }
+
+private:
+    void run(const stone::LevelSet& set, const std::vector<unsigned>& levels) {
+        for (const unsigned level : levels) {
+            const stone::Solution solution = stone::solve(set, level - 1, 2000000, &stop);
+            if (stop)
+                return;
+            Found result = {level, stone::Settings::Par()};
+            switch (solution.verdict) {
+            case stone::Solution::solvable:
+                result.par.kind = stone::Settings::Par::solvable;
+                result.par.ticks = solution.ticks;
+                break;
+            case stone::Solution::unknown: result.par.kind = stone::Settings::Par::unknown; break;
+            default: result.par.kind = stone::Settings::Par::unsolvable; // also too slow
+            }
+            std::lock_guard<std::mutex> lock(mutex);
+            found.push_back(result);
+        }
+    }
+    std::atomic<bool> stop{false};
+    std::mutex mutex;
+    std::vector<Found> found;
+    std::thread thread; // last: it starts once the rest is there
+};
+#endif
+
 // Everything the loop uses. The desktop calls step() in a loop; in the browser
 // it runs once per frame.
 struct Player {
@@ -190,8 +235,9 @@ struct Player {
     long scripted_ticks = -1;
     struct Key {
         long tick;
-        uint8_t scan; // or 0 for a tap at x, y
+        uint8_t scan; // or 0 for a tap at x, y, or for `text` typed
         float x, y;
+        std::string text;
     };
     std::vector<Key> keys;
     bool scripted = false, fresh = false;
@@ -202,7 +248,15 @@ struct Player {
     const stone::Package* parts[stone::Settings::parts] = {};
     // The level set played (E7), Machine::pack, and the CRC of its records.
     uint32_t maps_crc = 0;
+    std::unique_ptr<stone::LevelSet> played;
     std::unique_ptr<stone::Assets> assets;
+#ifndef __EMSCRIPTEN__
+    // The pars of the level set played (E8): whether to look for the missing
+    // ones, and the search for them.
+    bool pars_wanted = false;
+    std::unique_ptr<ParFinder> pars;
+    void find_pars();
+#endif
     SDL_Window* window = nullptr;
     SDL_Renderer* renderer = nullptr;
     std::unique_ptr<stone::GameView> view;
@@ -276,9 +330,11 @@ Player::Player(int argc, char** argv) {
             long tick;
             std::string scan;
             while (file >> tick >> scan) {
-                Key key = {tick, 0, 0, 0};
+                Key key = {tick, 0, 0, 0, ""};
                 if (scan == "tap")
                     file >> key.x >> key.y;
+                else if (scan == "text")
+                    file >> key.text;
                 else
                     key.scan = uint8_t(std::stoul(scan, nullptr, 16));
                 keys.push_back(key);
@@ -448,8 +504,43 @@ void Player::choose_assets() {
     machine.levels = maps->count;
     machine.pack = pack;
     machine.pack_name = built_in ? "" : maps->name;
+#ifndef __EMSCRIPTEN__
+    if (maps->crc() != maps_crc) { // another level set: its own pars
+        pars.reset();
+        pars_wanted = !scripted; // a scripted run stays the same every time
+    }
+#endif
     maps_crc = maps->crc();
+    played = std::move(maps);
 }
+
+#ifndef __EMSCRIPTEN__
+// Between ticks, where the game holds no settings of its own: the pars found
+// go into STONEAGE.ENH. The search starts once enhanced mode is on.
+void Player::find_pars() {
+    if (pars_wanted && machine.enhanced) {
+        pars_wanted = false;
+        const stone::Settings settings(settings_file);
+        std::vector<unsigned> levels;
+        for (unsigned level = 1; level <= played->count; ++level)
+            if (settings.par(maps_crc, level).kind == stone::Settings::Par::none)
+                levels.push_back(level);
+        if (!levels.empty())
+            pars.reset(new ParFinder(*played, levels));
+    }
+    if (!pars)
+        return;
+    const std::vector<ParFinder::Found> found = pars->take();
+    if (found.empty())
+        return;
+    stone::Settings settings(settings_file);
+    for (const ParFinder::Found& result : found)
+        settings.set_par(maps_crc, result.level, result.par);
+    settings_file = settings.bytes();
+    if (!fresh)
+        stone::write_file(score_directory + stone::Settings::file_name, settings_file);
+}
+#endif
 
 stone::LevelSet Player::level_set(const std::string& pack) const {
     if (pack == stone::Settings::free_maps ||
@@ -566,6 +657,9 @@ bool Player::step() {
                machine.showing == stone::Machine::password);
 #endif
     }
+#ifndef __EMSCRIPTEN__
+    find_pars();
+#endif
     const auto current = SDL_GetTicksNS();
     if (focused && !paused)
         clock.add(current - previous, scripted);
@@ -573,10 +667,16 @@ bool Player::step() {
     bool advanced = image.rgb.empty();
     while (clock.next() && !machine.finished()) {
         for (; next_key < keys.size() && keys[next_key].tick <= ticks; ++next_key) {
-            if (keys[next_key].scan)
-                scan = keys[next_key].scan;
+            const Key& key = keys[next_key];
+            if (key.scan) {
+                scan = key.scan;
+                if (machine.reads_characters() && scan < 0x80) // as a key of the page
+                    machine.type_key(scan);
+            } else if (!key.text.empty())
+                for (const char c : key.text)
+                    machine.type(uint8_t(c));
             else
-                tap(keys[next_key].x, keys[next_key].y);
+                tap(key.x, key.y);
         }
         if (!queued.empty()) {
             scan = queued.front();
@@ -603,7 +703,7 @@ bool Player::step() {
 void Player::key(uint8_t code, bool down) {
     queued.push_back(down ? code : uint8_t(code | 128));
     if (down && machine.reads_characters())
-        type_scan(machine, code);
+        machine.type_key(code);
 }
 
 void Player::tap(float x, float y) {

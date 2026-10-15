@@ -34,7 +34,7 @@ jobs:
         run: |
           cmake --preset core
           cmake --build --preset core
-          ctest --test-dir build/cmake-core --output-on-failure
+          ctest --test-dir build/cmake-core --output-on-failure -LE long
 
       - name: Install emsdk
         uses: mymindstorm/setup-emsdk@v14

@@ -85,6 +85,33 @@ void bad_bests() {
         CHECK(!settings.best(set_a, level).cleared());
 }
 
+// E8: what the solver found for a map, kept until the map changes (its set's CRC).
+void pars() {
+    using stone::Settings;
+    Settings settings;
+    CHECK(settings.par(set_a, 3).kind == Settings::Par::none);
+    Settings::Par par;
+    par.kind = Settings::Par::solvable;
+    par.ticks = 1458;
+    settings.set_par(set_a, 3, par);
+    par.kind = Settings::Par::unsolvable;
+    settings.set_par(set_a, 31, par);
+    par.kind = Settings::Par::unknown;
+    settings.set_par(set_b, 3, par);
+    settings.set_par(set_a, 4, Settings::Par()); // none is not written
+    CHECK(text(settings.bytes()) ==
+          "par 12345678 3 1458\npar 12345678 31 unsolvable\npar deadbeef 3 unknown\n");
+    const Settings saved(settings.bytes());
+    CHECK(saved.par(set_a, 3).kind == Settings::Par::solvable);
+    CHECK(saved.par(set_a, 3).ticks == 1458);
+    CHECK(saved.par(set_a, 31).kind == Settings::Par::unsolvable);
+    CHECK(saved.par(set_b, 3).kind == Settings::Par::unknown);
+    CHECK(saved.par(set_a, 4).kind == Settings::Par::none);
+    const Settings bad(bytes("par 12345678 1 0\npar 12345678 2 x\npar 12345678 3\n"));
+    for (unsigned level = 1; level <= 3; ++level)
+        CHECK(bad.par(set_a, level).kind == Settings::Par::none);
+}
+
 // E4: a line per map of each level set, and one of totals.
 void statistics() {
     using stone::Settings;
@@ -181,13 +208,16 @@ void unknown_lines_kept() {
 
 unsigned zip_tests();    // zip_tests.cpp
 unsigned levels_tests(); // levels_tests.cpp
+unsigned solver_tests(const std::string& package_path); // solver_tests.cpp
 
-int main() {
+// The argument, the asset package, lets the solver's tests prove their solutions.
+int main(int argc, char** argv) {
     defaults();
     reading();
     last_map();
     bests();
     bad_bests();
+    pars();
     statistics();
     bad_statistics();
     display();
@@ -196,5 +226,5 @@ int main() {
     unknown_lines_kept();
     if (!failures)
         std::cout << "settings_tests passed\n";
-    return failures + zip_tests() + levels_tests() ? 1 : 0;
+    return failures + zip_tests() + levels_tests() + solver_tests(argc > 1 ? argv[1] : "") ? 1 : 0;
 }

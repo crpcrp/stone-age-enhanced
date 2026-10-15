@@ -65,6 +65,7 @@ private:
     void draw_unknown(uint8_t* pixels, unsigned map) const;
     // A cleared map: a triangle in the miniature's top-right corner (E3).
     void draw_mark(uint8_t* pixels, unsigned map) const;
+    std::string header(unsigned map) const;
     void write(unsigned x, unsigned y, const std::string& text) const;
     // From the page of `from` to the page of `to`, 40 pixels a tick.
     void slide(unsigned from, unsigned to);
@@ -81,6 +82,7 @@ private:
     unsigned furthest = 1; // 1-100
     unsigned last = 0;     // 1-100, 0 for none
     Settings::Best bests[records];
+    uint32_t set_crc = 0; // Game::level_set(), which takes the work buffer
 };
 
 bool MapSelector::run() {
@@ -161,7 +163,7 @@ bool MapSelector::run() {
 // five themes, and how far this level set has been played.
 void MapSelector::gather() {
     const Settings settings = g.load_settings();
-    const uint32_t set = g.level_set();
+    const uint32_t set = set_crc = g.level_set();
     furthest = settings.reached(set);
     last = settings.last(set);
     for (unsigned map = 0; map < maps; ++map)
@@ -247,12 +249,7 @@ void MapSelector::draw(unsigned cursor, int shift) {
     g.unpack(g.font_resource(), g.work_buffer());
     const uint8_t colour = g.text_colour();
     g.text_colour() = text_slot;
-    // The map and its bests (E3): MAP 12  41.3s  1250.
-    std::string header = "MAP " + std::to_string(cursor + 1);
-    if (bests[cursor].cleared())
-        header += "  " + tick_seconds(bests[cursor].ticks) + "s  " +
-                  std::to_string(bests[cursor].points);
-    write(8, 2, header);
+    write(8, 2, header(cursor));
     g.text_colour() = grey_slots + 6; // E7: the list of level sets
     write(sets_x, 2, "L SETS");
     g.text_colour() = grey_slots + 7;
@@ -333,6 +330,36 @@ void MapSelector::draw_mark(uint8_t* pixels, unsigned map) const {
         for (unsigned x = 0; x < size - y; ++x)
             pixels[(thumb_y(map) + y) * 320 + right - x] =
                 x == size - 1 - y ? uint8_t(254) : mark_slot; // a black edge
+}
+
+// The map, its bests (E3) and its par (E8): MAP 12  41.3s  1250  PAR 38.0s,
+// closer together and shorter where that is too long for the room left of
+// L SETS.
+std::string MapSelector::header(unsigned map) const {
+    const std::string number = "MAP " + std::to_string(map + 1);
+    // Read anew each time: the player finds pars while the game goes on.
+    const Settings::Par par = g.load_settings().par(set_crc, map + 1);
+    std::string par_text;
+    if (!reached(map))
+        ; // unknown, as its miniature
+    else if (par.kind == Settings::Par::solvable)
+        par_text = "PAR " + tick_seconds(par.ticks);
+    else if (par.kind == Settings::Par::unsolvable)
+        par_text = "UNSOLVABLE";
+    const Settings::Best& best = bests[map];
+    if (!best.cleared())
+        return par_text.empty() ? number : number + "  " + par_text + (par.ticks ? "s" : "");
+    const std::string time = tick_seconds(best.ticks), points = std::to_string(best.points);
+    if (par_text.empty())
+        return number + "  " + time + "s  " + points;
+    const unsigned room = (sets_x - 8) / 8;
+    for (const std::string& line :
+         {number + "  " + time + "s  " + points + "  " + par_text + (par.ticks ? "s" : ""),
+          number + " " + time + "s " + points + " " + par_text + (par.ticks ? "s" : ""),
+          number + " " + time + " " + points + " " + par_text})
+        if (line.size() <= room)
+            return line;
+    return number + " " + time + " " + par_text;
 }
 
 void MapSelector::write(unsigned x, unsigned y, const std::string& text) const {
