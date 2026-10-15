@@ -9,15 +9,18 @@ is, its size and colours, and what the game does with it. Addresses such as
 
 `assets/` is the free set, made for this project. With the original game's
 files present ([BUILDING.md](BUILDING.md#the-original-game)), Options F2
-chooses each of three parts from either set:
+chooses each of two parts from either set:
 
 - **images:** every picture, `colours.txt`, `sine.bin` and the texts;
-- **maps:** `levels.txt`, with the passwords;
 - **music:** the `.CMF` songs and, from `texts.txt`, their `[jukebox]`
   titles and `[song_files]` names.
 
-Parts can be mixed: a level names its theme, palette and background by
-number, which every set has.
+The maps, `levels.txt` with the passwords, are a level set of their own:
+the list of level sets (L in the map selector, ENHANCEMENTS.md E7) offers
+the free set's, the original's and level packs in the same format.
+
+Parts and maps can be mixed: a level names its theme, palette and background
+by number, which every set has.
 
 ## Pictures in general
 
@@ -104,16 +107,17 @@ Sprites 181-184 use the title screen's colours.
 |---|---|---|
 | `screen_title` | Menu | Sprites 181-184 as above. The menu text is part of the picture. The free one says `F2 MAPS` and has an `F8 STATS` line (y=135), and no lines for C (credits) and Esc, which still work. Its lines F1-F8 start at (107,65), 7 pixels high and 10 apart; taps and the cursor (ENHANCEMENTS.md, E6) expect them there, or change `Game::menu_lines` (`lines.cpp`) to match. On the original's picture the game moves its seven lines up 8 pixels and adds `F8 - STATS` |
 | `screen_password` | F2 (Tab in the map selector) | Six 16x16 letters from (135,83): `password/00` is the empty cell, `01..26` are A-Z; their background is slot 254 |
-| `screen_options` | F5 | The picture's lines F1-F5 (88-211, 62-147) are covered with their commonest colour, and five lines are written over them in `font.bmp`, 17 pixels apart from y=64, in the colour the picture's lines use most: F1 enhanced mode, F2 setup, F3 full background, F4 flat stone, F5 sound; all but F2 end in `options/10` (ON, x=217) or `11` (OFF, x=214). Setup (F2) uses the same picture with F1 images, F2 maps, F3 music (each FREE or ORIG) and F4 VIEW (SHARP, CRT or SMOOTH), or NO ORIGINAL without the original's files. The F10 line stays as drawn; taps and the cursor expect it at y=156 from x=92, as in the free picture |
+| `screen_options` | F5 | The picture's lines F1-F5 (88-211, 62-147) are covered with their commonest colour, and five lines are written over them in `font.bmp`, 17 pixels apart from y=64, in the colour the picture's lines use most: F1 enhanced mode, F2 setup, F3 full background, F4 flat stone, F5 sound; all but F2 end in `options/10` (ON, x=217) or `11` (OFF, x=214). Setup (F2) uses the same picture with F1 images, F2 music (each FREE or ORIG) and F3 VIEW (SHARP, CRT or SMOOTH), and NO ORIGINAL without the original's files. The F10 line stays as drawn; taps and the cursor expect it at y=156 from x=92, as in the free picture |
 | `screen_jukebox` | F4 | Song list from (72,61), eight lines of 8 pixels; the playlist at y=147; help below, from (32,168), a line of 8 pixels for each key. Taps and the cursor (E6) find the lines from the texts: the songs are F1-F8 in order, and a help line acts as the key its text starts with, `F9`, `DEL`, `F10` or `ESC` (`texts.txt`). Glyphs `jukebox/000..049` and `050..099` alternate by line: A-Z, then `. , " -` space space `! ? ( ' : ;`, 0-9 and two spare (`CS:2e1a`) |
-| `screen_scores` | F3, name entry, F8 | Text in `font.bmp` from (32,7), 14 pixels a line, in slot 15, which the game makes red; `birds/0..6` (black, slot 254) fly across. The statistics (F8 in enhanced mode) write up to twelve lines of 31 characters there, without birds |
+| `screen_scores` | F3, name entry, F8 | Text in `font.bmp` from (32,7), 14 pixels a line, in slot 15, which the game makes red; `birds/0..6` (black, slot 254) fly across. With a level pack (E7) the text starts at y=0 and the pack's name is centred at y=184. The statistics (F8 in enhanced mode) write up to twelve lines of 31 characters there, without birds |
 | `screen_credits` | C, victory | White text (slot 15) scrolls through x=80..239 |
 | `screen_eclipse`, `screen_dinosaur`, `screen_bones_park` | Attract sequence | Nothing. The file names are the original's; the free set shows a fossil discovery, a stepping-stone valley and cave paintings |
 
 The map selector (F2 in enhanced mode) has no picture of its own: it draws
 miniatures of the levels from `tiles_1..5.bmp` (pixels 2, 7 and 12 of each
 tile, in the theme's `[tiles_n]` colours), writes in `font.bmp` and numbers
-the maps with the status-bar digits, sprites 124-133.
+the maps with the status-bar digits, sprites 124-133. Its list of level sets
+(L, E7) is drawn the same way, in `font.bmp` on black.
 
 `font.bmp`, 128x128: 128 characters of 8x16 from code 32, sixteen a row;
 codes 128-159 are the accented letters of code page 437. Any non-zero pixel

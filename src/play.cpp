@@ -5,10 +5,12 @@
 //              [--keys FILE] [--screenshot FILE.bmp]
 // The asset package (made by stone_assets) defaults to stoneage.dat beside the
 // player: the free asset set. If the original game's files are found in a
-// folder original_data, Options can choose the original's graphics, maps and
-// music in its place, each on its own (STONEAGE.ENH); --free leaves them out
-// for this run. The original maps keep their scores in STONEAGE.HI, the free
-// ones in FREEMAPS.HI.
+// folder original_data, Options can choose the original's graphics and music
+// in its place, each on its own (STONEAGE.ENH), and the map selector's list
+// of level sets its maps; --free leaves them out for this run. That list also
+// offers the level packs in a folder levels/ beside the player (ENHANCEMENTS.md,
+// E7). The original maps keep their scores in STONEAGE.HI, the free ones in
+// FREEMAPS.HI, a pack in scores/<crc>.HI.
 // Enhanced mode follows the setting saved in STONEAGE.ENH (on without one);
 // --original turns it off for this run without changing the saved setting.
 // --keys gives a scripted run (--ticks) its keys: lines `tick scan`, the scan
@@ -35,6 +37,7 @@
 #include <SDL3/SDL_timer.h>
 #include "assets.hpp"
 #include "content.hpp"
+#include "levels.hpp"
 #include "package.hpp"
 #include "zip.hpp"
 #include "settings.hpp"
@@ -47,6 +50,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <cstring>
 #include <ctime>
 #include <deque>
 #include <fstream>
@@ -119,9 +123,34 @@ void type_text(stone::Machine& machine, const char* utf8) {
 }
 #ifdef __EMSCRIPTEN__
 const std::string save_directory = "/save/";
-// What Export saves and Import saves carry: everything the player stores.
+// What Export saves and Import saves carry: everything the player stores,
+// and the files in these folders with these endings, the level packs and
+// their score tables (E7).
 const char* const save_files[] = {"STONEAGE.ENH", "STONEAGE.HI", "FREEMAPS.HI", "original.dat"};
+const struct {
+    const char *folder, *ending;
+} save_folders[] = {{"levels", ".txt"}, {"scores", ".HI"}};
 #endif
+
+bool same_name(const std::string& a, const std::string& b) {
+    return std::equal(a.begin(), a.end(), b.begin(), b.end(),
+                      [](char x, char y) { return std::toupper(x) == std::toupper(y); });
+}
+
+// The files in `folder` whose names end in `ending` (in any case), sorted.
+std::vector<std::string> files_in(const std::string& folder, const std::string& ending) {
+    std::vector<std::string> found;
+    int count = 0;
+    char** names = SDL_GlobDirectory(folder.c_str(), ("*" + ending).c_str(),
+                                     SDL_GLOB_CASEINSENSITIVE, &count);
+    if (!names)
+        return found;
+    for (int n = 0; n < count; ++n)
+        found.push_back(names[n]);
+    SDL_free(names);
+    std::sort(found.begin(), found.end());
+    return found;
+}
 
 // The original game's own graphics, levels and music, for those who have its
 // files: SA_V1_00.EXE and the eight CMF songs in a folder original_data
@@ -171,6 +200,8 @@ struct Player {
     stone::Bytes settings_file;
     // Each part from the set STONEAGE.ENH chooses for it.
     const stone::Package* parts[stone::Settings::parts] = {};
+    // The level set played (E7), Machine::pack, and the CRC of its records.
+    uint32_t maps_crc = 0;
     std::unique_ptr<stone::Assets> assets;
     SDL_Window* window = nullptr;
     SDL_Renderer* renderer = nullptr;
@@ -199,10 +230,22 @@ struct Player {
     Player(const Player&) = delete;
     Player& operator=(const Player&) = delete;
     void choose_assets();
-    // STONEAGE.HI is the original's file, so only its maps' scores go there.
+    // Level packs (E7) live here, as text files.
+    std::string pack_folder() const { return score_directory + "levels/"; }
+    // A pack read, or one of the built-in sets; throws when it does not read.
+    stone::LevelSet level_set(const std::string& pack) const;
+    // What the map selector's list offers (Machine::level_sets).
+    std::vector<stone::Machine::LevelSetEntry> level_sets() const;
+    // STONEAGE.HI is the original's file, so only its maps' scores go
+    // there: the free maps' go to FREEMAPS.HI, a pack's to scores/<crc>.HI.
     std::string score_file(const std::string& name) const {
-        const bool free_maps = parts[stone::Settings::maps] == free_package.get();
-        return score_directory + (free_maps && name == "STONEAGE.HI" ? "FREEMAPS.HI" : name);
+        if (name != "STONEAGE.HI" || machine.pack == stone::Settings::original_maps)
+            return score_directory + name;
+        if (machine.pack == stone::Settings::free_maps)
+            return score_directory + "FREEMAPS.HI";
+        char crc[16];
+        std::snprintf(crc, sizeof crc, "%08x", unsigned(maps_crc));
+        return score_directory + "scores/" + crc + ".HI";
     }
     void play_song();
     // A key pressed or released other than on the keyboard; typed too while
@@ -317,6 +360,7 @@ Player::Player(int argc, char** argv) {
         choose_assets();
         assets->install(cpu);
     };
+    machine.level_sets = [this] { return level_sets(); };
     const auto now = std::time(nullptr);
     const auto local = std::localtime(&now);
     machine.seconds = scripted || !local ? 0 : unsigned(local->tm_sec);
@@ -351,7 +395,10 @@ Player::Player(int argc, char** argv) {
         }
         if (fresh)
             return;
-        stone::write_file(score_file(name), data);
+        const std::string path = score_file(name);
+        if (path.compare(score_directory.size(), 7, "scores/") == 0)
+            SDL_CreateDirectory((score_directory + "scores").c_str());
+        stone::write_file(path, data);
 #ifdef __EMSCRIPTEN__
         // Into IndexedDB at once, so it is kept even if the tab closes next.
         EM_ASM({ Module.storeSaves(); });
@@ -381,8 +428,74 @@ void Player::choose_assets() {
         parts[n] = original_package && settings.original(stone::Settings::Part(n))
                        ? original_package.get()
                        : free_package.get();
-    assets.reset(new stone::Assets(*parts[stone::Settings::images], *parts[stone::Settings::maps],
+    // The level set: a pack that no longer reads gives way to the maps of
+    // the original, or without its files to the free ones.
+    std::string pack = settings.pack();
+    if (pack == stone::Settings::original_maps && !original_package)
+        pack = stone::Settings::free_maps; // the default without the original's files
+    std::unique_ptr<stone::LevelSet> maps;
+    try {
+        maps.reset(new stone::LevelSet(level_set(pack)));
+    } catch (const std::exception& e) {
+        std::cerr << "The level set " << pack << " is not played: " << e.what() << "\n";
+        pack = original_package ? stone::Settings::original_maps : stone::Settings::free_maps;
+        maps.reset(new stone::LevelSet(level_set(pack)));
+    }
+    assets.reset(new stone::Assets(*parts[stone::Settings::images], *maps,
                                    *parts[stone::Settings::music]));
+    const bool built_in =
+        pack == stone::Settings::free_maps || pack == stone::Settings::original_maps;
+    machine.levels = maps->count;
+    machine.pack = pack;
+    machine.pack_name = built_in ? "" : maps->name;
+    maps_crc = maps->crc();
+}
+
+stone::LevelSet Player::level_set(const std::string& pack) const {
+    if (pack == stone::Settings::free_maps ||
+        (pack == stone::Settings::original_maps && original_package)) {
+        const stone::Package& package =
+            pack == stone::Settings::free_maps ? *free_package : *original_package;
+        return stone::read_levels(package.file("levels.txt"), "levels.txt", false);
+    }
+    if (pack == stone::Settings::original_maps)
+        throw std::runtime_error("the original game's files are not there");
+    stone::Bytes file;
+    if (pack.find_first_of("/\\") != std::string::npos || !read(pack_folder() + pack, file))
+        throw std::runtime_error("levels/" + pack + " cannot be read");
+    stone::LevelSet set = stone::read_levels(file, pack, true);
+    if (set.name.empty()) // the file's name without .txt
+        set.name = pack.size() > 4 && same_name(pack.substr(pack.size() - 4), ".txt")
+                       ? pack.substr(0, pack.size() - 4)
+                       : pack;
+    return set;
+}
+
+std::vector<stone::Machine::LevelSetEntry> Player::level_sets() const {
+    std::vector<std::string> packs = {stone::Settings::free_maps};
+    if (original_package)
+        packs.push_back(stone::Settings::original_maps);
+    for (const std::string& file : files_in(pack_folder(), ".txt"))
+        packs.push_back(file);
+    std::vector<stone::Machine::LevelSetEntry> sets;
+    for (const std::string& pack : packs) {
+        stone::Machine::LevelSetEntry entry = {pack, pack, "", 0, 0};
+        try {
+            const stone::LevelSet set = level_set(pack);
+            entry.name = pack == stone::Settings::free_maps       ? "Free maps"
+                         : pack == stone::Settings::original_maps ? "Original maps"
+                                                                  : set.name;
+            entry.levels = set.count;
+            entry.crc = set.crc();
+        } catch (const stone::LevelError& e) { // its line, without the file's name
+            entry.problem = e.what();
+            entry.problem = entry.problem.substr(entry.problem.find(", line ") + 2);
+        } catch (const std::exception& e) {
+            entry.problem = e.what();
+        }
+        sets.push_back(entry);
+    }
+    return sets;
 }
 
 void Player::play_song() {
@@ -528,10 +641,6 @@ void Player::finish() {
 }
 
 #ifdef __EMSCRIPTEN__
-bool same_name(const std::string& a, const std::string& b) {
-    return std::equal(a.begin(), a.end(), b.begin(), b.end(),
-                      [](char x, char y) { return std::toupper(x) == std::toupper(y); });
-}
 
 // Add the original game: /tmp/original.zip holds SA_V1_00.EXE and its eight
 // songs, at its top or in one folder, with names in any case. They are
@@ -655,6 +764,13 @@ extern "C" EMSCRIPTEN_KEEPALIVE const char* stone_export_saves() {
             if (read(save_directory + name, data))
                 files[name] = data;
         }
+        for (const auto& folder : save_folders)
+            for (const std::string& name : files_in(save_directory + folder.folder, folder.ending)) {
+                stone::Bytes data;
+                const std::string path = std::string(folder.folder) + "/" + name;
+                if (read(save_directory + path, data))
+                    files[path] = data;
+            }
         if (files.empty())
             throw std::runtime_error("There are no saves yet.");
         stone::write_file("/tmp/saves.zip", stone::write_zip(files));
@@ -675,14 +791,24 @@ extern "C" EMSCRIPTEN_KEEPALIVE const char* stone_import_saves() {
             throw std::runtime_error("The zip could not be read.");
         std::map<std::string, stone::Bytes> saves;
         for (auto& entry : stone::read_zip(zip)) {
-            std::string name = entry.first.substr(entry.first.find_last_of("/\\") + 1);
+            const std::size_t slash = entry.first.find_last_of("/\\");
+            const std::string name = entry.first.substr(slash + 1);
             for (const char* save : save_files)
                 if (same_name(name, save))
                     saves[save] = std::move(entry.second);
+            // A pack or a score table in its folder (E7), in a folder or not.
+            const std::string in = slash == std::string::npos ? "" : entry.first.substr(0, slash);
+            const std::string folder = in.substr(in.find_last_of("/\\") + 1);
+            for (const auto& kept : save_folders) {
+                const std::size_t ending = std::strlen(kept.ending);
+                if (same_name(folder, kept.folder) && name.size() > ending &&
+                    same_name(name.substr(name.size() - ending), kept.ending))
+                    saves[std::string(kept.folder) + "/" + name] = std::move(entry.second);
+            }
         }
         if (saves.empty())
             throw std::runtime_error("The zip holds no saves (STONEAGE.ENH, STONEAGE.HI, "
-                                     "FREEMAPS.HI or original.dat).");
+                                     "FREEMAPS.HI, original.dat, levels/ or scores/).");
         const auto original = saves.find("original.dat");
         if (original != saves.end()) { // it must open, or the game would not start
             stone::write_file("/tmp/original.dat", original->second);
@@ -694,6 +820,8 @@ extern "C" EMSCRIPTEN_KEEPALIVE const char* stone_import_saves() {
             }
             std::remove("/tmp/original.dat");
         }
+        for (const auto& folder : save_folders)
+            SDL_CreateDirectory((save_directory + folder.folder).c_str());
         for (const auto& save : saves)
             stone::write_file(save_directory + save.first, save.second);
         saves_problem.clear();

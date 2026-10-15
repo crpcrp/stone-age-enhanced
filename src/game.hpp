@@ -300,7 +300,7 @@ struct Game : GameNames {
     // cursor's marker (E6).
     void draw_menu(const LineCursor* cursor = nullptr) const;
     // CS:0010. A game from this level until all lives are lost, Esc, or
-    // the last level is completed. Not original: in enhanced mode each level
+    // the last level is completed (not original: the last of a pack, E7). Not original: in enhanced mode each level
     // started is recorded as reached and as the last started, unless `counts`
     // is false (a start by LVLnnn, ENHANCEMENTS.md E1 and E2); each level
     // completed may set a best, and each level played counts in the
@@ -366,9 +366,9 @@ struct Game : GameNames {
     // the line cursor's marker (E6) with them.
     void draw_option_lines(const char* const* labels, const uint8_t* sprites,
                            unsigned count, const LineCursor* cursor = nullptr) const;
-    // Not original, F2 in Options: F1 images, F2 maps, F3 music, each
-    // free or the original's, F4 the display preset (ENHANCEMENTS.md, E5),
-    // F10 back to Options. The assets change only with the original game's
+    // Not original, F2 in Options: F1 images, F2 music, each free or the
+    // original's, F3 the display preset (ENHANCEMENTS.md, E5), F10 back to
+    // Options. The assets change only with the original game's
     // files there; the choices are saved and the game takes its assets from
     // them when this is left.
     void asset_options() const;
@@ -379,9 +379,14 @@ struct Game : GameNames {
     void save_settings(const Settings& settings) const;
 
     // --- Map selector (selector.cpp; ENHANCEMENTS.md, E1), enhanced mode only ---
-    // F2 in the menu: the 100 maps, 20 to a page; Enter on a reached one
-    // starts a game there, Tab or P opens the password screen, Esc leaves.
+    // F2 in the menu: the maps of the level set, 20 to a page; Enter on a
+    // reached one starts a game there, Tab or P opens the password screen, L
+    // the list of level sets (E7), Esc leaves.
     void map_selector() const;
+    // L in the map selector (packs.cpp; E7): the level sets the host offers
+    // (Machine::level_sets) with their maps reached and cleared. Enter on one
+    // that reads plays it from now on. True when the level set changed.
+    bool choose_pack() const;
     // The CRC-32 of the level records, which tells level sets apart.
     uint32_t level_set() const;
     // Level level() + 1 started: saved as the last one started (E2), and as

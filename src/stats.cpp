@@ -14,7 +14,7 @@ namespace {
 const uint8_t esc = 0x01, tab = 0x0f, key_s = 0x1f, home = 0x47, arrow_up = 0x48, page_up = 0x49,
               arrow_left = 0x4b, arrow_right = 0x4d, end_key = 0x4f, arrow_down = 0x50,
               page_down = 0x51;
-const unsigned maps = 100, per_page = 10, columns = 31;
+const unsigned per_page = 10, columns = 31;
 const unsigned scores_picture = 0x328d0; // as in screens.cpp
 
 // Ticks of 70 a second as hours, minutes and seconds: 1:02:03, or 2:03.
@@ -112,7 +112,7 @@ void Statistics::gather() {
     const Settings settings = g.load_settings();
     totals = settings.totals();
     const uint32_t set = g.level_set();
-    for (unsigned number = 1; number <= maps; ++number) {
+    for (unsigned number = 1; number <= g.m.levels; ++number) { // E7: a pack may have fewer
         const Map map = {number, settings.map_stats(set, number), settings.best(set, number)};
         if (map.best.cleared())
             ++cleared;
@@ -149,7 +149,8 @@ std::vector<std::string> Statistics::lines(unsigned page) const {
         };
         for (const auto& row : rows)
             text.push_back(spread(row.first, row.second));
-        text.push_back(spread("THESE MAPS", std::to_string(cleared) + " OF 100 CLEARED"));
+        text.push_back(spread("THESE MAPS", std::to_string(cleared) + " OF " +
+                                                std::to_string(g.m.levels) + " CLEARED"));
         return text;
     }
     text.push_back(spread(by_attempts ? "MAPS BY ATTEMPTS" : "MAPS BY NUMBER", number));

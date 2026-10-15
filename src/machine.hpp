@@ -85,12 +85,30 @@ public:
         unsigned steps = 0, hourglasses = 0, keys = 0, gates = 0, teleports = 0, platforms = 0;
     } tally;
     // Not original (Options F2): the original game's files are there,
-    // so Options can choose its graphics, maps and music in place of the free
-    // ones. The game calls change_assets once it has saved new choices in
-    // STONEAGE.ENH; the host then gives it the resources and program bytes
-    // of those sets.
+    // so Options can choose its graphics and music in place of the free
+    // ones, and the list of level sets its maps (E7). The game calls
+    // change_assets once it has saved new choices in STONEAGE.ENH; the host
+    // then gives it the resources and program bytes of those sets.
     bool original_assets = false;
     std::function<void(Machine&)> change_assets;
+    // Not original (ENHANCEMENTS.md, E7): the level set being played. The
+    // host hands out its records in place of the resource at 157e0, padded
+    // to 100, and its passwords; `levels` is how many it really has (100 in
+    // the built-in sets), so the game ends after the last of them. `pack` is
+    // its name in STONEAGE.ENH (Settings::pack), `pack_name` what the score
+    // screen calls a pack (empty for the built-in sets).
+    unsigned levels = 100;
+    std::string pack, pack_name;
+    // The level sets the host offers, for the list of the map selector (L):
+    // the built-in ones first, then the packs in levels/. A pack whose file
+    // does not read has `problem` and cannot be chosen. Choosing one saves
+    // it in STONEAGE.ENH and calls change_assets.
+    struct LevelSetEntry {
+        std::string pack, name, problem;
+        unsigned levels;
+        uint32_t crc;
+    };
+    std::function<std::vector<LevelSetEntry>()> level_sets;
     // Not original (ENHANCEMENTS.md, E5): the display preset, a
     // Settings::Display. The host sets it from STONEAGE.ENH at the start,
     // Options changes it, and the host reads it every frame and shows the
@@ -103,7 +121,7 @@ public:
     // pixels: a line of a function-key screen sends its key, pressed and
     // released; a line without a key (the map selector's miniatures) puts its
     // index in `tapped` for the screen to read.
-    enum Showing { other, menu, options, setup, jukebox, selector, password, name_entry };
+    enum Showing { other, menu, options, setup, jukebox, selector, password, name_entry, packs };
     struct Line {
         unsigned x, y, width, height;
         uint8_t key;

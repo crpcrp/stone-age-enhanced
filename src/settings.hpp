@@ -20,14 +20,21 @@ public:
     // Without the line, or with any other value, off.
     bool light() const;
     void set_light(bool on);
-    // `images`, `maps` or `music` followed by `original` or `free`: which
-    // asset set that part comes from when the original game's files are
-    // there (Options F2). Without the line, or with any other value, the
-    // original.
-    enum Part { images, maps, music };
-    static const unsigned parts = 3;
+    // `images` or `music` followed by `original` or `free`: which asset set
+    // that part comes from when the original game's files are there
+    // (Options F2). Without the line, or with any other value, the original.
+    enum Part { images, music };
+    static const unsigned parts = 2;
     bool original(Part part) const;
     void set_original(Part part, bool on);
+    // `pack <name>`: the level set played (ENHANCEMENTS.md, E7): `free` or
+    // `original` for the maps of an asset set, otherwise the file name of a
+    // pack in levels/. Without the line, `maps free` of earlier versions
+    // gives `free` and anything else `original`.
+    static const char* const free_maps;
+    static const char* const original_maps;
+    std::string pack() const;
+    void set_pack(const std::string& name);
     // `display sharp|crt|smooth`: how the host shows the picture in enhanced
     // mode (ENHANCEMENTS.md, E5). Without the line, or with any other
     // value, sharp.

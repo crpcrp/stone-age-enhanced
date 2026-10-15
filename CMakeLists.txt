@@ -42,7 +42,7 @@ endif()
 option(STONE_BUILD_TESTS "Build and register the tests in research/tests (needs original_data/)" ${STONE_TESTS_DEFAULT})
 
 set(STONE_CORE_SOURCES src/stone.cpp src/machine.cpp src/game.cpp src/screens.cpp src/selector.cpp src/stats.cpp src/lines.cpp src/video.cpp
-    src/music.cpp src/assets.cpp src/content.cpp src/package.cpp src/settings.cpp src/zip.cpp)
+    src/music.cpp src/assets.cpp src/content.cpp src/package.cpp src/settings.cpp src/zip.cpp src/levels.cpp src/packs.cpp)
 add_library(stone_core ${STONE_CORE_SOURCES})
 target_include_directories(stone_core PUBLIC src)
 if(NOT EMSCRIPTEN) # in the browser readable code waits on a fiber, not a thread
@@ -74,7 +74,7 @@ endif()
 # Tests that need nothing of the original game (ENHANCEMENTS.md, Tests).
 include(CTest)
 if(BUILD_TESTING AND NOT EMSCRIPTEN)
-    add_executable(stone_tests tests/settings_tests.cpp tests/zip_tests.cpp)
+    add_executable(stone_tests tests/settings_tests.cpp tests/zip_tests.cpp tests/levels_tests.cpp)
     target_link_libraries(stone_tests PRIVATE stone_core)
     add_test(NAME settings COMMAND stone_tests)
 endif()
@@ -169,7 +169,7 @@ if(STONE_BUILD_PLAYER)
         set(tap_runs options selector)
         set(tap_ticks 760 900)
         set(tap_hashes dc22f9e3a3fad1d7b7f53f1c855bc0386e75ca616975825e904581d236738eb9
-                       87557027b2516e928d4bd50917fc6266787c7265a4fe177b573f7878151f5830)
+                       dad8d1d2c845200a0bfbabd6ac06faed13f50038213720bcfdb828b6b9c8156c)
         foreach(name ticks hash IN ZIP_LISTS tap_runs tap_ticks tap_hashes)
             add_test(NAME taps_${name} COMMAND ${CMAKE_COMMAND} -DPLAYER=$<TARGET_FILE:stone_play>
                 "-DPACKAGE=${STONE_OUTPUT}/stoneage.dat" "-DKEYS=${CMAKE_SOURCE_DIR}/tests/taps/${name}.keys"

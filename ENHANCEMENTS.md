@@ -12,11 +12,11 @@ refers to entries here by number (`ENHANCEMENTS.md, E1`).
 | E4 | Statistics | Done |
 | E5 | Display presets | Done, without fullscreen |
 | E6 | Gamepad and touch | Done; not yet tried on real phones or gamepads |
-| E7 | Level packs | Planned |
+| E7 | Level packs | Done; not yet tried in the browser |
 | E8 | Solver | Planned |
 | E9 | Level editor | Planned |
 
-E7 to E9 are listed in the order of work; each builds on those before it.
+E8 and E9 are listed in the order of work; each builds on those before it.
 
 ## Rules for every enhancement
 
@@ -48,7 +48,8 @@ E7 to E9 are listed in the order of work; each builds on those before it.
 |---|---|
 | `enhanced 1\|0` | E0; on when missing |
 | `light 1\|0` | E0 |
-| `images\|maps\|music original\|free` | Asset set per part (Options F2); `original` when missing |
+| `images\|music original\|free` | Asset set per part (Options F2); `original` when missing |
+| `pack free\|original\|<file name>` | E7; without it, `maps free` of earlier versions gives `free`, anything else `original` |
 | `display sharp\|crt\|smooth` | E5; `sharp` when missing |
 | `reached <crc> <level>` | E1 |
 | `last <crc> <level>` | E2 |
@@ -69,11 +70,12 @@ With enhanced mode off it starts off and is not saved, as in the original.
 
 ## E1: map selector
 
-Menu F2 shows all 100 maps as miniatures, 20 to a page, drawn from the
-level's tiles. Maps not reached are grey. The arrow keys, PgUp/PgDn, Home
-and End move the cursor; Enter or Space starts a new game (new score, five
-lives) at any map reached. Tab or P opens the original's password screen;
-Esc goes back. With enhanced mode off, F2 is the password screen.
+Menu F2 shows all maps of the level set (100, or fewer in a pack, E7) as
+miniatures, 20 to a page, drawn from the level's tiles. Maps not reached are
+grey. The arrow keys, PgUp/PgDn, Home and End move the cursor; Enter or
+Space starts a new game (new score, five lives) at any map reached. Tab or P
+opens the original's password screen; L the list of level sets (E7); Esc
+goes back. With enhanced mode off, F2 is the password screen.
 
 ## E2: remember the last map
 
@@ -130,7 +132,7 @@ nothing.
 
 ## E5: display presets
 
-Options F2 (setup), F4 VIEW cycles the preset; it takes effect at once and
+Options F2 (setup), F3 VIEW cycles the preset; it takes effect at once and
 is saved when F10 leaves. All of it is in the host (`play.cpp`,
 `host_sdl.hpp`); `GameView` reads `Machine::display` every frame.
 
@@ -166,6 +168,7 @@ open none. Presses count only in enhanced mode, releases always.
 | A (south) | Enter |
 | X (west) | Space |
 | B (east) | Esc |
+| Y (north) | L (level sets, E7) |
 | Start | P (pause) |
 | Back, held half a second | Q (retry) |
 | LB, RB | PgUp, PgDn |
@@ -222,35 +225,54 @@ selector to map 13, comparing each screenshot by SHA-256.
 
 ---
 
-## E7: level packs (planned)
+## E7: level packs
 
-Play your own level sets: text files in `levels/` beside the player.
+Level sets to choose from: the free maps, the original's (with its files,
+[BUILDING.md](BUILDING.md#the-original-game)) and packs of your own, text
+files in a folder `levels/` beside the player.
 
-- **Format:** that of `levels.txt`, with 1 to 100 levels, an optional
-  `password` (made from the pack's CRC when missing) and an optional first
-  line `name <text>` (the file name otherwise).
-- **Choosing:** L in the selector lists the built-in set and each pack with
-  its name, level count and maps reached and cleared. A file that does not
-  parse is listed with its first error and line, and cannot be chosen. The
-  choice is saved as `pack <file name>` and is the set for F1, F2 and the
-  password screen.
-- **Loading:** `Machine` holds the pack's records and `supply_resource`
-  hands them out in place of the resource at file offset `157e0`; the
-  pack's passwords are written over `level_passwords()` (DS:1f24). Records
-  are padded to 100 so `level_record_size()` and the selector's arithmetic
-  stay the same. The parser moves from `assets.cpp` into `levels.{hpp,cpp}`
-  in `stone_core`, shared by the packer, player, editor and solver.
+- **Format:** that of `levels.txt` (its header explains it), with 1 to 100
+  levels, an optional first line `name <text>` (the file name without
+  `.txt` otherwise) and an optional `password` on each level. A level
+  without one gets a password made from the set's CRC, unlike any other of
+  the set. `levels.{hpp,cpp}` in `stone_core` reads and writes the format,
+  for the packer and the player alike.
+- **Choosing:** L in the map selector (or tapping `L SETS` in its header,
+  or Y on a gamepad) lists the free maps, the original's when its files are
+  there, and each pack, sorted by file name, with its name, number of maps
+  and the maps reached and cleared. The set played is in the colour of a
+  cleared map's mark. A pack that does not read is listed as `DOES NOT
+  READ`, with its first error and line under the list when the cursor is on
+  it, and cannot be chosen. Enter plays the set from now on, Esc or L goes
+  back; the selector opens again on the set chosen. The choice is saved as
+  `pack free`, `pack original` or `pack <file name>` and is the set for F1,
+  F2 and the password screen. Options F2 (setup) no longer chooses the maps.
+- **Loading:** the host (`play.cpp`) reads the set and gives it to
+  `Assets`, which hands out its records in place of the resource at file
+  offset `157e0` and writes its passwords over `level_passwords()`
+  (DS:1f24), as for the maps of an asset set. Records are padded to 100 with
+  copies of the last, so `level_record_size()`, `Game::level_set()` and the
+  selector's arithmetic stay the same. `Machine::levels` is the real count,
+  `Machine::pack` the saved name. A pack that has gone or no longer reads
+  gives way to the original's maps, or without them the free ones.
 - **Fewer than 100 levels:** the victory credits follow the pack's last
-  level, and the selector shows only its maps.
-- **High scores:** each pack has `scores/<crc>.HI` in `STONEAGE.HI`'s
-  format, starting from the built-in default table. Switching packs saves
-  the old table and loads the new one before anything reads it. The score
-  screen names the pack. The built-in sets keep their files as now.
+  level; the selector shows only its maps, statistics count only them, and
+  the password screen and `LVLnnn` know only them. This holds with enhanced
+  mode off too, where the set saved is still the one played; the built-in
+  sets have 100 levels, so nothing changes for them.
+- **High scores:** each pack has `scores/<crc>.HI` beside the player, in
+  `STONEAGE.HI`'s format, starting from the built-in default table.
+  Choosing a set loads its table; tables are saved whenever they change, so
+  nothing of the old one is lost. In enhanced mode the score screen names
+  the pack on its bottom line, the table moved up 7 pixels to make room.
+  The built-in sets keep their files: `STONEAGE.HI` for the original's
+  maps, `FREEMAPS.HI` for the free ones.
+- **In the browser** the folders are `/save/levels/` and `/save/scores/`.
+  Export saves puts both in the zip; Import saves takes `levels/*.txt` and
+  `scores/*.HI` from it, which is how a pack gets into the browser.
 
-**Done when** packs of 1, 37 and 100 levels play from start to victory, a
-broken file is reported and not loaded, packs keep separate progress and
-scores, and with the built-in set `STONEAGE.HI` is read and written exactly
-as before.
+`stone_tests` reads packs of 1, 37 and 100 levels, names, passwords made and
+given, broken files with their lines, and a pack written and read back.
 
 ## E8: solver (planned)
 
@@ -344,10 +366,11 @@ played from its pack, and the saved file reads back the same.
 ## Tests
 
 `stone_tests` (`tests/`) runs without the original game. It covers every
-`STONEAGE.ENH` line, including keeping unknown lines, and the zip code. The
-tap tests (E6) compare screenshots. Planned additions: pack parsing and
-writing (E7), the solver on small boards and on the whole free set (E8), and
-scripted runs through the selector, statistics and editor.
+`STONEAGE.ENH` line, including keeping unknown lines, the zip code, and
+reading and writing level packs (E7). The tap tests (E6) compare
+screenshots. Planned additions: the solver on small boards and on the whole
+free set (E8), and scripted runs through the selector, statistics and
+editor.
 
 With each enhancement, the comparison tests with the original executable
 are run with enhanced mode off. They are outside this repository.
@@ -360,6 +383,8 @@ are run with enhanced mode off. They are outside this repository.
    hourglasses distort.
 3. **E7: F1 plays the active pack** from its first level.
 4. **E7: each pack has its own score table** (`scores/<crc>.HI`);
-   `STONEAGE.HI` stays the built-in set's.
-5. **E8: the state limit** of 2 million is a guess, to be tuned on the
+   `STONEAGE.HI` stays the original maps' and `FREEMAPS.HI` the free ones'.
+5. **E7: the maps are a level set,** chosen in the selector's list with the
+   packs, not a part of Options F2 like the images and the music.
+6. **E8: the state limit** of 2 million is a guess, to be tuned on the
    hardest free levels.

@@ -1,6 +1,7 @@
 // Saves in the browser (BUILDING.md, Web version). Linked into index.js with
 // --pre-js, so FS and IDBFS are in scope. /save is the player's folder for
-// STONEAGE.ENH, STONEAGE.HI, FREEMAPS.HI and original.dat, kept in the
+// STONEAGE.ENH, STONEAGE.HI, FREEMAPS.HI, original.dat and the folders
+// levels/ (level packs) and scores/ (their score tables), kept in the
 // browser's IndexedDB.
 Module.preRun = Module.preRun || [];
 Module.preRun.push(function () {

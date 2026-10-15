@@ -1,5 +1,6 @@
 #include "assets.hpp"
 #include "content.hpp"
+#include "levels.hpp"
 #include "machine.hpp"
 #include <algorithm>
 #include "package.hpp"
@@ -16,8 +17,8 @@
 // All pictures are uncompressed 8-bit BMP files. Pixel values are the game's
 // palette indices; index 0 is transparent in sprites.
 //
-//   levels.txt               157e0  100 levels as text (format in the file itself), with
-//                                   their passwords (DS:1f24)
+//   levels.txt               157e0  100 levels as text (format in the file itself and in
+//                                   levels.cpp), with their passwords (DS:1f24)
 //   texts.txt, colours.txt   texts and colours of the program image (content.cpp)
 //   tiles_1..5.bmp           17630, 18200, 18e40, 19a90, 1a710  40 tiles of 16x16, 8 per row
 //   background_a1..a5.bmp    1b340, 1d7f0, 1f7e0, 217b0, 23830  320x176
@@ -139,132 +140,6 @@ void append_sprite(Bytes& sheet, const Picture& p) {
 
 const unsigned data_in_file = 0x33b0; // DS:0000 in SA_V1_00.EXE
 const uint16_t consonants_at = 0x1f06, vowels_at = 0x1f15, passwords_at = 0x1f24;
-
-// Level records (REFERENCE.md section 3) as text and back.
-const char* const levels_help =
-    "# Stone Age levels. Each level is a header line and 11 rows of 20 tiles.\n"
-    "#   time        countdown parameter, 0..999 (shown value is time + time/4)\n"
-    "#   theme       tile set 0..4 (tiles_1..5.bmp)\n"
-    "#   palette     color set of the tiles, 0..5\n"
-    "#   background  0..4 (background_a1..5 or background_b1..5)\n"
-    "#   flag        fourth header byte; the game reads it but does not use it\n"
-    "#   password    six letters, a consonant and a vowel in turn; consonants are\n"
-    "#               D M T S P F B R N L V W H K C, vowels U I A O E\n"
-    "#\n"
-    "# Tile codes. The picture of each tile is in tiles_1..5.bmp, eight per row,\n"
-    "# in this order: A B C D E F G H / I J K L M N O P / Q R S ...\n"
-    "#   A  empty space: no floor to walk on; platforms travel across it\n"
-    "#   B  floor\n"
-    "#   C  platform that moves up\n"
-    "#   D  platform that moves down\n"
-    "#   E  platform that moves right\n"
-    "#   F  platform that moves left\n"
-    "#   G  platform that moves up or down\n"
-    "#   H  platform that moves left or right\n"
-    "#   I  platform that moves in all four directions\n"
-    "#   J  hourglass: time bonus\n"
-    "#   K  cracked floor: crumbles away after it is stepped on\n"
-    "#   L  wall block\n"
-    "#   M  red gate, opened with a red key\n"
-    "#   N  green gate, opened with a green key\n"
-    "#   O  red key\n"
-    "#   P  green key\n"
-    "#   Q  teleport\n"
-    "#   R  start position (exactly one per level)\n"
-    "#   S  exit\n"
-    "#   a  outside: the black area around the level\n"
-    "#   b c d   the large decorative rock, three by three tiles:\n"
-    "#   e f g   use all nine letters together, in this arrangement\n"
-    "#   h i j\n"
-    "#   k l m   stages of a crumbling floor; the game writes these itself\n";
-// Passwords are three bytes a level (DS:1f24), each a consonant by its high
-// nibble and a vowel by its low one (CS:0b92), in the alphabet of the program.
-struct Alphabet {
-    const uint8_t* consonants; // DS:1f06, fifteen letters
-    const uint8_t* vowels;     // DS:1f15, fifteen letters
-    std::string letters(const uint8_t* code) const {
-        std::string s;
-        for (int n = 0; n < 3; ++n)
-            s += {char(consonants[code[n] >> 4]), char(vowels[code[n] & 15])};
-        return s;
-    }
-    // The first code that spells the letters; false when none does.
-    bool code(const std::string& letters, uint8_t* code) const {
-        if (letters.size() != 6)
-            return false;
-        for (int n = 0; n < 3; ++n) {
-            const auto c = std::find(consonants, consonants + 15, uint8_t(letters[2 * n]));
-            const auto v = std::find(vowels, vowels + 15, uint8_t(letters[2 * n + 1]));
-            if (c == consonants + 15 || v == vowels + 15)
-                return false;
-            code[n] = uint8_t((c - consonants) << 4 | (v - vowels));
-        }
-        return true;
-    }
-};
-std::string levels_text(const Bytes& records, const uint8_t* passwords, const Alphabet& alphabet) {
-    std::ostringstream text;
-    text << levels_help;
-    for (unsigned n = 0; n < 100; ++n) {
-        const uint8_t* r = records.data() + n * 227;
-        text << "\nlevel " << n + 1 << " time " << std::string(r, r + 3) << " theme "
-             << int(r[3]) - '0' << " palette " << int(r[4]) << " background " << int(r[5])
-             << " flag " << int(r[6]) - '0' << " password " << alphabet.letters(passwords + n * 3)
-             << "\n";
-        for (unsigned row = 0; row < 11; ++row)
-            text << std::string(r + 7 + row * 20, r + 27 + row * 20) << "\n";
-    }
-    const std::string s = text.str();
-    return s;
-}
-// The records, and in `passwords` three bytes a level.
-Bytes levels_records(const Bytes& file, const Alphabet& alphabet, Bytes& passwords) {
-    std::istringstream text(std::string(file.begin(), file.end()));
-    Bytes records;
-    std::string line;
-    auto fail = [&](const std::string& why) {
-        throw std::runtime_error("levels.txt, level " + std::to_string(records.size() / 227 + 1) +
-                                 ": " + why);
-    };
-    while (std::getline(text, line)) {
-        if (!line.empty() && line.back() == '\r')
-            line.pop_back();
-        if (line.empty() || line[0] == '#')
-            continue;
-        int number, time, theme, palette, background, flag, end = 0;
-        if (std::sscanf(line.c_str(),
-                        "level %d time %d theme %d palette %d background %d flag %d%n", &number,
-                        &time, &theme, &palette, &background, &flag, &end) != 6 ||
-            number != int(records.size() / 227) + 1 || time < 0 || time > 999)
-            fail("bad header line");
-        char letters[16] = "";
-        int after = 0;
-        if (std::sscanf(line.c_str() + end, " password %15s %n", letters, &after) != 1 ||
-            line[end + after] != 0)
-            fail("a password after the flag");
-        uint8_t code[3];
-        if (!alphabet.code(letters, code))
-            fail(std::string("no password spells ") + letters);
-        passwords.insert(passwords.end(), code, code + 3);
-        char digits[8];
-        std::snprintf(digits, sizeof digits, "%03d", time);
-        records.insert(records.end(), digits, digits + 3);
-        for (int value : {theme + '0', palette, background, flag + '0'})
-            records.push_back(uint8_t(value));
-        for (unsigned row = 0; row < 11; ++row) {
-            if (!std::getline(text, line))
-                fail("missing rows");
-            if (!line.empty() && line.back() == '\r')
-                line.pop_back();
-            if (line.size() != 20)
-                fail("a row must have 20 tiles");
-            records.insert(records.end(), line.begin(), line.end());
-        }
-    }
-    if (records.size() != 22700)
-        throw std::runtime_error("levels.txt must hold 100 levels");
-    return records;
-}
 
 struct Named {
     unsigned offset;
@@ -422,9 +297,12 @@ std::map<std::string, Bytes> original_files(const std::string& executable) {
         files[name] = read_file(folder + name);
     const Bytes levels = machine.unpack(0x157e0);
     {
-        const uint8_t* data = exe.data() + data_in_file;
-        const std::string text =
-            levels_text(levels, data + passwords_at, {data + consonants_at, data + vowels_at});
+        LevelSet set;
+        set.count = LevelSet::most;
+        set.records = levels;
+        const uint8_t* passwords = exe.data() + data_in_file + passwords_at;
+        set.passwords.assign(passwords, passwords + 3 * LevelSet::most);
+        const std::string text = write_levels(set);
         write_file(path("levels.txt"), Bytes(text.begin(), text.end()));
     }
     write_file(path("sine.bin"), machine.unpack(0x33720));
@@ -522,7 +400,10 @@ void pack_assets(const std::string& directory, const std::string& package) {
     write_package(package, files);
 }
 
-Assets::Assets(const Package& graphics, const Package& maps, const Package& music) {
+Assets::Assets(const Package& package)
+    : Assets(package, read_levels(package.file("levels.txt"), "levels.txt", false), package) {}
+
+Assets::Assets(const Package& graphics, const LevelSet& maps, const Package& music) {
     auto path = [](const std::string& name) {
         return name;
     };
@@ -532,14 +413,8 @@ Assets::Assets(const Package& graphics, const Package& maps, const Package& musi
     auto read_picture = [&](const std::string& name) {
         return file_picture(graphics.file(name), name);
     };
-    {
-        Machine image; // the program as built, for its password alphabet
-        const uint8_t* data = &image.data(0);
-        Bytes passwords;
-        resources[0x157e0] = levels_records(maps.file(path("levels.txt")),
-                                            {data + consonants_at, data + vowels_at}, passwords);
-        program[data_in_file + passwords_at] = passwords;
-    }
+    resources[0x157e0] = maps.records;
+    program[data_in_file + passwords_at] = maps.passwords;
     content_program(graphics, program);
     if (&music != &graphics)
         song_program(music, program);
@@ -618,7 +493,12 @@ void verify_assets(const std::string& executable, const std::string& package) {
     // Program bytes: sprite directories, passwords, texts and colours. A password
     // may be spelt with other codes than the original's.
     const uint8_t* data = exe.data() + data_in_file;
-    const Alphabet alphabet{data + consonants_at, data + vowels_at};
+    const auto letters = [&](const uint8_t* code) {
+        std::string s;
+        for (int n = 0; n < 3; ++n)
+            s += {char(data[consonants_at + (code[n] >> 4)]), char(data[vowels_at + (code[n] & 15)])};
+        return s;
+    };
     unsigned bytes = 0;
     for (const auto& entry : assets.program) {
         const uint8_t* original = exe.data() + entry.first;
@@ -626,7 +506,7 @@ void verify_assets(const std::string& executable, const std::string& package) {
         if (entry.first == data_in_file + passwords_at) {
             same = true;
             for (std::size_t n = 0; n < entry.second.size(); n += 3)
-                same = same && alphabet.letters(&entry.second[n]) == alphabet.letters(original + n);
+                same = same && letters(&entry.second[n]) == letters(original + n);
         }
         if (!same)
             throw std::runtime_error("Asset files differ from the original program bytes at " +

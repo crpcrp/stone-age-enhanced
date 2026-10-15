@@ -22,7 +22,8 @@ const uint32_t set_a = 0x12345678, set_b = 0xdeadbeef;
 void defaults() {
     const stone::Settings settings;
     CHECK(settings.enhanced());
-    CHECK(settings.original(stone::Settings::maps));
+    CHECK(settings.original(stone::Settings::images));
+    CHECK(settings.pack() == "original");
     CHECK(settings.reached(set_a) == 1);
     CHECK(settings.last(set_a) == 0);
     CHECK(settings.bytes().empty());
@@ -32,7 +33,7 @@ void reading() {
     const stone::Settings settings(bytes("enhanced 0\r\nmaps free\nreached 12345678 40\n"
                                          "last 12345678 7\nlast deadbeef 101\nreached deadbeef x"));
     CHECK(!settings.enhanced());
-    CHECK(!settings.original(stone::Settings::maps));
+    CHECK(settings.pack() == "free"); // the line of earlier versions
     CHECK(settings.original(stone::Settings::music));
     CHECK(settings.reached(set_a) == 40);
     CHECK(settings.last(set_a) == 7);
@@ -157,6 +158,19 @@ void light() {
     CHECK(text(settings.bytes()) == "light 0\n");
 }
 
+// E7: the level set, from `pack`, or from `maps` of earlier versions.
+void pack() {
+    using stone::Settings;
+    CHECK(Settings(bytes("maps original\n")).pack() == "original");
+    CHECK(Settings(bytes("maps free\npack mine.txt\n")).pack() == "mine.txt");
+    CHECK(Settings(bytes("pack \nmaps free\n")).pack() == "free");
+    Settings settings(bytes("maps free\n"));
+    settings.set_pack("original");
+    CHECK(settings.pack() == "original");
+    settings.set_pack("my pack.txt");
+    CHECK(text(settings.bytes()) == "maps free\npack my pack.txt\n");
+}
+
 void unknown_lines_kept() {
     stone::Settings settings(bytes("future 1 2 3\nenhanced 1\n# note\n"));
     settings.set_enhanced(false);
@@ -165,7 +179,8 @@ void unknown_lines_kept() {
 }
 } // namespace
 
-unsigned zip_tests(); // zip_tests.cpp
+unsigned zip_tests();    // zip_tests.cpp
+unsigned levels_tests(); // levels_tests.cpp
 
 int main() {
     defaults();
@@ -177,8 +192,9 @@ int main() {
     bad_statistics();
     display();
     light();
+    pack();
     unknown_lines_kept();
     if (!failures)
         std::cout << "settings_tests passed\n";
-    return failures + zip_tests() ? 1 : 0;
+    return failures + zip_tests() + levels_tests() ? 1 : 0;
 }
