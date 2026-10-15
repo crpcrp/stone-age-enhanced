@@ -129,6 +129,21 @@ void bad_statistics() {
     CHECK(settings.totals().ticks == 0);
 }
 
+// E5: the display preset, sharp unless the line names another.
+void display() {
+    using stone::Settings;
+    CHECK(Settings().display() == Settings::sharp);
+    CHECK(Settings(bytes("display crt\n")).display() == Settings::crt);
+    CHECK(Settings(bytes("display smooth\n")).display() == Settings::smooth);
+    CHECK(Settings(bytes("display wobbly\n")).display() == Settings::sharp);
+    CHECK(Settings(bytes("display \n")).display() == Settings::sharp);
+    Settings settings;
+    settings.set_display(Settings::smooth);
+    settings.set_display(Settings::crt);
+    CHECK(text(settings.bytes()) == "display crt\n");
+    CHECK(Settings(settings.bytes()).display() == Settings::crt);
+}
+
 void unknown_lines_kept() {
     stone::Settings settings(bytes("future 1 2 3\nenhanced 1\n# note\n"));
     settings.set_enhanced(false);
@@ -145,6 +160,7 @@ int main() {
     bad_bests();
     statistics();
     bad_statistics();
+    display();
     unknown_lines_kept();
     if (failures)
         return 1;

@@ -362,9 +362,10 @@ struct Game : GameNames {
     void draw_option_lines(const char* const* labels, const uint8_t* sprites,
                            unsigned count) const;
     // Not original, F2 in Options: F1 images, F2 maps, F3 music, each
-    // free or the original's, F10 back to Options. They change only with
-    // the original game's files there; the choices are saved and the game
-    // takes its assets from them when this is left.
+    // free or the original's, F4 the display preset (ENHANCEMENTS.md, E5),
+    // F10 back to Options. The assets change only with the original game's
+    // files there; the choices are saved and the game takes its assets from
+    // them when this is left.
     void asset_options() const;
     // Enhanced mode on or off, saved at once.
     void set_enhanced(bool on) const;

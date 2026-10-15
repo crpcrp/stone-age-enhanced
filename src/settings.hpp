@@ -24,6 +24,14 @@ public:
     static const unsigned parts = 3;
     bool original(Part part) const;
     void set_original(Part part, bool on);
+    // `display sharp|crt|smooth`: how the host shows the picture in enhanced
+    // mode (ENHANCEMENTS.md, E5). Without the line, or with any other
+    // value, sharp.
+    enum Display { sharp, crt, smooth };
+    static const unsigned displays = 3;
+    static const char* display_name(Display display);
+    Display display() const;
+    void set_display(Display display);
     // `reached <crc> <level>`: the furthest level, 1-100, ever started of the
     // level set whose records have this CRC-32 (ENHANCEMENTS.md, E1). 1
     // without the line or with a bad value.

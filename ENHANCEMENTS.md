@@ -3,8 +3,8 @@
 What the enhanced game adds to the original, and the plan for what comes
 next. The code refers to the entries here by number (`ENHANCEMENTS.md, E1`).
 
-- **E0 to E4** are done.
-- **E5 to E9** are planned. Their order below is the order of work: each
+- **E0 to E5** are done (E5 without fullscreen, for now).
+- **E6 to E9** are planned. Their order below is the order of work: each
   one builds on those before it.
 
 ## Rules for every enhancement
@@ -177,7 +177,7 @@ and Home and End jump to the first and last page. With enhanced mode off
 F8 is ignored and the menu is the original's. `stone_tests` checks the
 `stats` and `totals` lines.
 
-## E5: display: fullscreen, scaling, aspect ratio and a CRT look
+## E5: display: scaling, aspect ratio and a CRT look (done, without fullscreen)
 
 All of this is in the host (`play.cpp`, `host_sdl.hpp`). Nothing in the
 game changes. With enhanced mode off, the window is the plain resizable
@@ -187,27 +187,25 @@ window it is today.
 
 | Line | Values | What it does |
 |---|---|---|
-| `fullscreen` | `0` or `1` | Borderless fullscreen on the current display. |
-| `display` | `sharp`, `classic` or `smooth` | One of the presets below. |
+| `display` | `sharp`, `crt` or `smooth` | One of the presets below. |
+
+Fullscreen (a `fullscreen` line, Alt+Enter and F11) was planned here and is
+left out for now.
 
 **The presets:**
-- `sharp`: square pixels, scaled by whole numbers only
-  (`SDL_LOGICAL_PRESENTATION_INTEGER_SCALE`). This is the default.
-- `classic`: 4:3, as a DOS monitor showed 320×200, so each pixel is 1.2
-  times as tall as it is wide. The picture is first scaled up by nearest
-  pixel to a whole multiple, then smoothly to the 4:3 size
-  ("sharp-bilinear"). Dark scanlines are laid over it: an overlay texture
-  drawn at the window's size, which needs no shaders.
+- `sharp`: square pixels, scaled by whole numbers only. This is the
+  default.
+- `crt`: 4:3, as a DOS monitor showed 320×200, so each pixel is 1.2 times
+  as tall as it is wide. The picture is scaled up by nearest pixel to a
+  whole multiple, then smoothly to the 4:3 size ("sharp-bilinear"), and
+  dark scanlines are laid over it: an overlay texture drawn at the
+  window's size, which needs no shaders.
 - `smooth`: 4:3, filling as much of the window as it can, without
-  scanlines.
+  scanlines, with the staircases of the pixel art rounded off (Scale2x).
 
-**Controls.**
-- Alt+Enter and F11 switch fullscreen anywhere, without passing the key to
-  the game.
-- Options gets a fifth line, `F5. DISPLAY`, which cycles through the
-  presets and writes the preset's name where the other lines draw ON or
-  OFF. The picture has room for it: the original's options screen had five
-  lines there.
+**Controls.** Options F2 (now `SETUP`) gets a fourth line, `F4. VIEW`,
+which cycles through the presets and writes the preset's name where the
+other lines write FREE or ORIG.
 
 **How the host learns of a change.** The game writes the new setting and
 sets a `Machine` member. The host reads that member every frame and applies
@@ -216,10 +214,32 @@ it.
 **Files.** `play.cpp`, `host_sdl.hpp`, `screens.cpp` (options),
 `settings.{hpp,cpp}`, `machine.hpp`, `README.md` (keys).
 
-**Done when** each preset looks right in a window and in fullscreen, at
-1080p, 1440p and on an odd window size, and screenshots
-(`--screenshot`) are unchanged, since they are taken from the game's
-picture rather than from the window.
+**Done when** each preset looks right in a window at 1080p, 1440p and on
+an odd window size, and screenshots (`--screenshot`) are unchanged, since
+they are taken from the game's picture rather than from the window.
+
+**As built.** `Machine::display` holds the preset (a `Settings::Display`);
+the host sets it from `STONEAGE.ENH` at the start, and `GameView`
+(`host_sdl.hpp`) reads it with `Machine::enhanced` every frame. With
+enhanced mode off it sets SDL's letterboxed 320×200 presentation and
+nearest scaling, as before; in enhanced mode it places the picture itself.
+The Options screen has no room for a sixth line above F10, so the preset
+is on the second screen, F2, renamed `SETUP`: `F4. VIEW` takes effect at
+once and is saved when F10 leaves. The preset is named `crt`, not the
+plan's `classic`, so that `F4. VIEW` and the name fit the 15 characters
+of a line.
+- `sharp` draws at the largest whole multiple that fits; a window smaller
+  than 320×200 gets as much as fits.
+- `crt` uses SDL 3.4's `SDL_SCALEMODE_PIXELART`, which is sharp-bilinear
+  done by the renderer. The scanlines are a column one pixel wide and as
+  tall as the picture in the window, worked out for its rows (the average
+  of a sin² beam over each row, 45% dark between two of the game's rows),
+  drawn with `SDL_BLENDMODE_MOD`; the picture under it is drawn 1.2 times
+  brighter (`SDL_SetRenderColorScale`) to make up. With fewer than three
+  window rows to a game row there is no room for lines, and they are left
+  out.
+- `smooth` runs Scale2x twice on the CPU (320×200 to 1280×800), only when
+  the game's picture changes, and draws that with linear filtering.
 
 ## E6: gamepad
 
@@ -493,8 +513,8 @@ whoever holds the original runs them.
 
 Decided:
 
-1. **E5 and E6 follow the switch.** With enhanced mode off, fullscreen,
-   the display presets and the gamepad are all off, as rule 1 says.
+1. **E5 and E6 follow the switch.** With enhanced mode off, the display
+   presets and the gamepad are all off, as rule 1 says.
 2. **E7, F1 plays the active pack.** F1 (new game) starts the pack chosen
    in the selector, from its first level.
 3. **E7, each pack has its own high scores,** in its own score table

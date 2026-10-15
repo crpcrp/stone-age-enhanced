@@ -48,6 +48,23 @@ void Settings::set_original(Part part, bool on) {
 }
 
 namespace {
+const char* const display_names[Settings::displays] = {"sharp", "crt", "smooth"};
+} // namespace
+
+const char* Settings::display_name(Display display) { return display_names[display]; }
+
+Settings::Display Settings::display() const {
+    std::string value;
+    if (find("display", value))
+        for (unsigned n = 0; n < displays; ++n)
+            if (value == display_names[n])
+                return Display(n);
+    return sharp;
+}
+
+void Settings::set_display(Display display) { set("display", display_names[display]); }
+
+namespace {
 std::string level_key(const char* key, uint32_t levels) {
     char text[24];
     std::snprintf(text, sizeof text, "%s %08x", key, unsigned(levels));

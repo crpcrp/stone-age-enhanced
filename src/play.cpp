@@ -187,11 +187,7 @@ int main(int argc, char** argv) {
                                          SDL_WINDOW_RESIZABLE | (scripted ? SDL_WINDOW_HIDDEN : 0),
                                          &window, &renderer))
             throw std::runtime_error(SDL_GetError());
-        auto texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB24,
-                                         SDL_TEXTUREACCESS_STREAMING, 320, 200);
-        if (!texture)
-            throw std::runtime_error(SDL_GetError());
-        stone::configure_game_output(renderer, texture);
+        std::unique_ptr<stone::GameView> view(new stone::GameView(renderer));
 
         // Music: the game asks the FX driver (INT 64h) to load, play and stop songs.
         std::unique_ptr<stone::MusicSynth> music;
@@ -259,6 +255,7 @@ int main(int argc, char** argv) {
             stone::write_file(score_file(name), data);
         };
         machine.enhanced = !original && stone::Settings(settings_file).enhanced();
+        machine.display = stone::Settings(settings_file).display();
         machine.start(); // the game ends through INT 21h/4Ch
 
         stone::HostTickClock clock;
@@ -312,13 +309,9 @@ int main(int argc, char** argv) {
             }
             if (advanced) {
                 image = machine.frame();
-                if (!SDL_UpdateTexture(texture, nullptr, image.rgb.data(), 320 * 3))
-                    throw std::runtime_error(SDL_GetError());
+                view->update(image);
             }
-            SDL_SetRenderDrawColor(renderer, 16, 16, 16, 255);
-            SDL_RenderClear(renderer);
-            SDL_RenderTexture(renderer, texture, nullptr, nullptr);
-            SDL_RenderPresent(renderer);
+            view->present(machine.enhanced, machine.display);
             if (stream && !scripted)
                 while (SDL_GetAudioStreamQueued(stream) < music->sample_rate() / 5) {
                     auto samples = music->generate(music->sample_rate() / 20);
@@ -336,7 +329,7 @@ int main(int argc, char** argv) {
             std::cout << "SDL host ran " << ticks << " ticks.\n";
         if (stream)
             SDL_DestroyAudioStream(stream);
-        SDL_DestroyTexture(texture);
+        view.reset();
         SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(window);
         SDL_Quit();
