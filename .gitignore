@@ -11,6 +11,7 @@
 !/CMakePresets.json
 !/build.ps1
 !/src/
+!/tests/
 !/assets/
 !/third_party/
 /third_party/*

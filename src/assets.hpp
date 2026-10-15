@@ -25,7 +25,7 @@ class Assets {
 public:
     explicit Assets(const Package& package) : Assets(package, package, package) {}
     // Levels and passwords from `maps`, the songs' titles and file names from
-    // `music`, everything else from `graphics` (ENHANCEMENTS.md, E2). The
+    // `music`, everything else from `graphics` (Options F2). The
     // song files themselves are read from `music` by the player.
     Assets(const Package& graphics, const Package& maps, const Package& music);
     const Bytes* find(unsigned file_offset) const;

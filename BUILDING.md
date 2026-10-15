@@ -106,10 +106,14 @@ part of this repository; in a fork, edit them like any other source.
 
 ## Tests
 
-The tests replay key scripts on the game and compare every 70 Hz tick with a
-run of the original executable under the same keys. They, their recorded
-fixtures and the scripts that make them are derived from the original game
-and are not part of this repository. With them in `research/` and the
+`stone_tests` needs nothing of the original game and is built with every
+preset; run it with `ctest --test-dir build/cmake -C Release` (or the build tree
+of the preset used). It tests the saved settings (`tests/`).
+
+The comparison tests replay key scripts on the game and compare every 70 Hz
+tick with a run of the original executable under the same keys. They, their
+recorded fixtures and the scripts that make them are derived from the
+original game and are not part of this repository. With them in `research/` and the
 original files in `original_data/`, `.\build.ps1 -Test` (or the `test`
 presets) builds and runs them.
 
