@@ -109,6 +109,13 @@ public:
         uint32_t crc;
     };
     std::function<std::vector<LevelSetEntry>()> level_sets;
+    // Not original (ENHANCEMENTS.md, E9): the level editor. save_pack writes
+    // a pack's file into levels/ under this file name and returns what went
+    // wrong, or nothing; the host then lists it with the other packs. While
+    // `test_level` holds a record, load_level takes it in place of the level
+    // set's: a level played from the editor.
+    std::function<std::string(const std::string&, const Bytes&)> save_pack;
+    Bytes test_level;
     // Not original (ENHANCEMENTS.md, E5): the display preset, a
     // Settings::Display. The host sets it from STONEAGE.ENH at the start,
     // Options changes it, and the host reads it every frame and shows the
@@ -121,7 +128,7 @@ public:
     // pixels: a line of a function-key screen sends its key, pressed and
     // released; a line without a key (the map selector's miniatures) puts its
     // index in `tapped` for the screen to read.
-    enum Showing { other, menu, options, setup, jukebox, selector, password, name_entry, packs };
+    enum Showing { other, menu, options, setup, jukebox, selector, password, name_entry, packs, editor };
     struct Line {
         unsigned x, y, width, height;
         uint8_t key;

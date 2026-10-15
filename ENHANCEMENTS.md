@@ -14,9 +14,7 @@ refers to entries here by number (`ENHANCEMENTS.md, E1`).
 | E6 | Gamepad and touch | Done; not yet tried on real phones or gamepads |
 | E7 | Level packs | Done; not yet tried in the browser |
 | E8 | Solver | Done; in the browser only the free set has pars |
-| E9 | Level editor | Planned |
-
-E9 is next; it builds on those before it.
+| E9 | Level editor | Done; its F9 line on the original's picture not yet seen |
 
 ## Rules for every enhancement
 
@@ -38,7 +36,7 @@ E9 is next; it builds on those before it.
    the free set and each pack keep separate records.
 5. **Scripted runs never save.** A run with `--ticks` keeps `STONEAGE.ENH`
    in memory and never writes it, so tests and a player's progress cannot
-   affect each other.
+   affect each other. The packs the editor (E9) saves stay in memory too.
 6. **Cheats record nothing.** Games started with `LVLnnn` and levels played
    while MAYDAY is on (`cheat_mode()`) record no bests and no statistics.
 
@@ -282,7 +280,7 @@ game. It gives no hints during play. Uses:
 
 - **Par:** the fewest ticks to clear a map, as E3 counts them, shown beside
   the best in the selector and in the statistics.
-- **Solvability** of a pack's maps (E7), and later of a map the editor saves
+- **Solvability** of a pack's maps (E7), and of a map the editor checks
   (E9): *solvable*, *unsolvable* (also when the exit can be reached only
   after the time has run out), or *unknown* if the search hits its limit.
 - **A check on the free set:** all 100 levels solvable within their time.
@@ -367,45 +365,87 @@ clears it in the real game, and the game takes exactly the ticks the model
 says. `stone_solve` takes about a minute and a half for all 100 in a release
 build, 4 seconds for the slowest.
 
-## E9: level editor (planned)
+## E9: level editor
 
-Menu F9 (an `F9 EDITOR` line, written by code on the original's picture as
-for E4).
+Menu F9. The free title picture has an `F9 EDITOR` line; on the original's
+picture `add_editor_line` closes the lines up to 8 pixels apart and adds
+`F9 - EDITOR`, from letters of the picture where it has them (F, the dash,
+T, the 9 from its 6 and the E from its F) and D, I, O and R drawn in their
+colour. With enhanced mode off F9 does nothing.
 
-- **Opening:** choose a new pack (named as in name entry, saved as
-  `levels/<name>.txt`) or an existing pack's map in the selector. An empty
-  slot starts with walls round the edge, a start and an exit. Editing a
-  built-in map saves a copy into a pack.
-- **Screen:** the board as in a level (`Board::draw_all`) with a cursor;
-  the 22-pixel strip below shows the tile in hand and its neighbours, the
-  level's time, theme, palette and background, and the last check's result.
-- **Keys** (on the E6 line cursor for gamepads):
+- **Opening:** F9 opens the map selector (E1) for the editor: every map of
+  the level set played is shown, and after the last map of a pack with
+  fewer than 100 an empty slot, `NEW`. Enter edits the map under the
+  cursor, L chooses another level set (E7), N starts a new pack (`N NEW` in
+  the header), Esc goes back to the menu. An empty slot, and a new pack's
+  first map, start with walls round the edge, floor inside, a start and an
+  exit.
+- **Screen:** the board as in a level (`Board::draw_all`) with a pulsing
+  cursor. The 22-pixel strip below it shows the tiles before, in and after
+  the hand, the record's time, theme, palette and background
+  (`T060 TH0 PA0 BG0`), `*` while there are unsaved changes, and the last
+  check: `PAR 5.5s` in green, `UNSOLVABLE`, `TOO SLOW` or an error in red,
+  `UNKNOWN`, or `NOT CHECKED` once the level has changed since. A message
+  (what a check warns of, how a play ended, where the level was saved)
+  takes the place of the text until the next key.
+- **Keys:**
 
 | Key | Action |
 |---|---|
-| Arrows | Move the cursor |
+| Arrows | Move the cursor; held, they repeat |
 | Space, Enter | Place the tile in hand; held while moving, paint |
-| Tab, Shift+Tab, PgUp, PgDn | Change the tile; number keys pick common ones |
+| Tab, Shift+Tab, PgUp, PgDn | Change the tile |
+| 1-9, 0 | Floor, wall, empty space, start, exit, cracked floor, platform of all four ways, teleport, hourglass, outside |
 | Del | Clear the cell to empty space (`A`) |
 | F1 | Help |
 | F2 | Play the level once, recording nothing, then return |
 | F3 | Check the level |
-| F4-F7 | Time, theme, palette, background |
-| Ctrl+Z, Ctrl+Y | Undo, redo |
+| F4-F7 | Time (by 10), theme, palette, background; with Shift backwards |
+| Ctrl+Z, Ctrl+Y | Undo, redo; a stroke of painting is one change |
+| L | A menu of F1-F10, undo, redo and leaving, on the E6 line cursor |
 | F10 | Check and save |
-| Esc | Leave, asking if there are unsaved changes |
+| Esc | Leave; with unsaved changes it asks for a second Esc |
 
-The 3×3 rock (`b`-`j`) is placed and removed as one piece; `k`-`m` cannot be
-placed. **Checks:** exactly one start (`R`) and at least one exit (`S`);
-keys without gates or gates without keys (warning); the solver (E8), where
-an unsolvable level can still be saved with a warning and a solvable one
-shows its par. In the browser the solver would have to run on the page's
-one thread. **Saving** goes through E7's parser, so a saved pack always
-reads back and stays editable by hand. Mouse painting is out of scope: the
-game receives only scan bytes.
+- **Gamepad and touch (E6):** the D-pad moves, A and X place (and paint
+  while held), LB and RB change the tile, B leaves, and Y (L) opens the menu
+  for everything else. A tap on a cell moves the cursor there and a second
+  tap places; taps on the tiles beside the hand change it, a tap on the hand
+  opens the menu.
+- **Tiles:** A-S, the outside `a` and the 3×3 rock (`b`-`j`), placed as one
+  piece from the cursor right and down, inside the board only. Anything
+  placed on a cell of a rock, or a rock over part of one, takes the whole
+  rock away. `k`-`m` and the signs cannot be placed. A start moves: the old
+  one becomes floor. `level_edit.{hpp,cpp}` in `stone_core` does this on a
+  level's record, without a `Machine`.
+- **Playing (F2):** as in a game, from the arrival to the end, with LIGHT as
+  set. `Machine::test_level` holds the record, which `load_level` takes in
+  place of the level set's, and `Machine::recording` is off, so nothing
+  counts (E3, E4). The strip then says `CLEARED IN 12.3s`, `GAVE UP` or that
+  the life was lost.
+- **Checks (F3):** errors: not exactly one start (`R`), no exit (`S`).
+  Warnings: a key without its gate, a gate without its key, a piece of a
+  rock without the rest. Without errors the solver (E8) runs, with its 2
+  million states, on the game's thread: the game stands still meanwhile,
+  seconds for a hard level, in the browser too.
+- **Saving (F10):** checks first; a level with errors is not saved, an
+  unsolvable one is. A pack's map replaces its record; the empty slot adds a
+  level, with a password made as for a pack level without one. A map of a
+  built-in set, and the first map of a new pack, ask for a pack name (up to
+  16 letters, digits, blanks, `-` or `_`, typed as in name entry, with a
+  gamepad's letters too) and become level 1 of `levels/<name>.txt`, other
+  characters as `_`; a name whose file is there already is refused. The
+  file is written with `write_levels` and read back with `read_levels`
+  before it is saved, so a saved pack always reads back as saved and stays
+  editable by hand. The pack is then the level set played (`pack` in
+  `STONEAGE.ENH`, E7), and a check of the level as saved writes its `par`
+  line under the pack's new CRC. Every save changes the pack's CRC, so its
+  progress, bests and statistics start again (rule 4).
+- **Where packs go:** `Machine::save_pack` is the host's. The desktop
+  writes into `levels/` beside the player, the browser into `/save/levels/`
+  (in Export saves, E7). A scripted run or `--fresh` keeps saved packs in
+  memory and lists them with the others (rule 5).
 
-**Done when** a level can be built from nothing, tested, checked, saved and
-played from its pack, and the saved file reads back the same.
+Mouse painting is out of scope: the game receives only scan bytes.
 
 ---
 
@@ -418,8 +458,12 @@ board for each rule, with its verdict and where the moves are plain its par;
 given the asset package, as CTest gives it, each solution is proved in the
 game too, and the package is checked to have a par for each free level
 (`assets/pars.txt`); no test runs the solver on the free set. The tap tests (E6) compare
-screenshots. Planned additions: scripted runs through the selector,
-statistics and editor.
+screenshots. `level_edit_tests` tries the editor's model (E9): the empty
+slot, which the solver clears, placing tiles and the rock, the checks, and a
+pack built as the editor builds it, read back the same. `editor_new_pack`
+goes from the menu through the editor to a new pack, saved and played from
+F2, and compares a screenshot of its level. Planned additions: scripted runs
+through the selector and statistics.
 
 With each enhancement, the comparison tests with the original executable
 are run with enhanced mode off. They are outside this repository.

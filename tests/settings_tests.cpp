@@ -208,6 +208,7 @@ void unknown_lines_kept() {
 
 unsigned zip_tests();    // zip_tests.cpp
 unsigned levels_tests(); // levels_tests.cpp
+unsigned level_edit_tests(); // level_edit_tests.cpp
 unsigned solver_tests(const std::string& package_path); // solver_tests.cpp
 
 // The argument, the asset package, lets the solver's tests prove their solutions.
@@ -226,5 +227,5 @@ int main(int argc, char** argv) {
     unknown_lines_kept();
     if (!failures)
         std::cout << "settings_tests passed\n";
-    return failures + zip_tests() + levels_tests() + solver_tests(argc > 1 ? argv[1] : "") ? 1 : 0;
+    return failures + zip_tests() + levels_tests() + level_edit_tests() + solver_tests(argc > 1 ? argv[1] : "") ? 1 : 0;
 }

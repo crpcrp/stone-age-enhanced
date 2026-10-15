@@ -225,6 +225,7 @@ and `dummy` audio drivers, so scripted runs and `stone_tests` work there.
 | `assets.*`, `content.*`, `package.*`, `assets_main.cpp` | The editable assets, the package format and `stone_assets`. |
 | `levels.*` | Level sets as text: `levels.txt` and level packs. |
 | `solver.*`, `solve_main.cpp` | The solver and its proof in the game (E8), and `stone_solve`. |
+| `editor.cpp`, `level_edit.*` | The level editor (E9): its screen, and what it does to a level. |
 | `selector.cpp`, `packs.cpp`, `stats.cpp`, `lines.cpp`, `settings.*` | Enhanced mode: the map selector, its list of level sets, statistics, the line cursor and `STONEAGE.ENH`. |
 | `play.cpp`, `host_*.hpp`, `gamepad.*` | The SDL host: window, keys, gamepad, touch, audio, files. Nothing else in `src/` uses SDL. |
 | `zip.*` | Zip reading and writing, for the web page's saves. |

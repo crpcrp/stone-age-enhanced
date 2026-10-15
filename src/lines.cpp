@@ -116,14 +116,15 @@ uint8_t Game::wait_for_line_key(LineCursor& cursor, const std::function<void()>&
 // The menu's lines are part of its picture, ten pixels apart. On the free
 // one they start at (107,65) (ASSETS.md); the original's step right seven
 // pixels a line from (73,67), as add_stats_line measured them, and with its
-// F8 line in enhanced mode all are eight pixels higher. With enhanced mode
-// off F8 does nothing and has no line.
+// F8 and F9 lines in enhanced mode they start at y=59, 8 pixels apart
+// (add_editor_line). With enhanced mode off F8 and F9 do nothing and have
+// no line.
 std::vector<Machine::Line> Game::menu_lines() const {
     const bool original = m.original_assets && load_settings().original(Settings::images);
     std::vector<Machine::Line> lines;
-    for (unsigned n = 0; n < (m.enhanced ? 8u : 7u); ++n)
-        lines.push_back(original ? Machine::Line{73 + 7 * n, (m.enhanced ? 59 : 67) + 10 * n, 112, 7,
-                                                 uint8_t(f1 + n)}
+    for (unsigned n = 0; n < (m.enhanced ? 9u : 7u); ++n)
+        lines.push_back(original ? Machine::Line{73 + 7 * n, m.enhanced ? 59 + 8 * n : 67 + 10 * n,
+                                                 112, 7, uint8_t(f1 + n)}
                                  : Machine::Line{107, 65 + 10 * n, 96, 7, uint8_t(f1 + n)});
     return lines;
 }

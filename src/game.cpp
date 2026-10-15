@@ -183,6 +183,8 @@ void Game::load_level() const {
     unpack(levels_resource(), work_buffer());
     const uint16_t segment = work_buffer()[1];
     uint16_t at = uint16_t(level() * level_record_size());
+    if (!m.test_level.empty()) // not original (ENHANCEMENTS.md, E9): the editor's level
+        std::copy(m.test_level.begin(), m.test_level.end(), m.at(segment, at));
     const auto next = [&] {
         return m.read8(segment, at++);
     };

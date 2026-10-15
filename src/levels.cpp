@@ -85,6 +85,23 @@ const Alphabet& alphabet() {
 }
 } // namespace
 
+std::string password_letters(const LevelSet& set, unsigned level);
+
+namespace {
+// A password for `level` from the sequence `seed` goes on, spelt unlike
+// those `taken`, which it joins.
+void make_password(LevelSet& set, unsigned level, uint32_t& seed, std::set<std::string>& taken) {
+    uint8_t* const code = &set.passwords[3 * level];
+    do {
+        for (int pair = 0; pair < 3; ++pair) {
+            seed = seed * 1103515245u + 12345u;
+            code[pair] = uint8_t((seed >> 16) % 15 << 4 | (seed >> 24) % 5);
+        }
+    } while (!taken.insert(password_letters(set, level)).second);
+    alphabet().code(password_letters(set, level), code); // spelt as a file reads it back
+}
+} // namespace
+
 LevelSet read_levels(const Bytes& file, const std::string& path, bool pack) {
     const Alphabet& letters = alphabet();
     std::istringstream text(std::string(file.begin(), file.end()));
@@ -163,9 +180,7 @@ LevelSet read_levels(const Bytes& file, const std::string& path, bool pack) {
         fail("levels.txt must hold 100 levels", 1);
     if (!set.count)
         fail("no levels", 1);
-    for (unsigned n = set.count; n < LevelSet::most; ++n)
-        set.records.insert(set.records.end(), set.records.end() - LevelSet::record_size,
-                           set.records.end());
+    pad_levels(set); // the passwords of the levels past count come after
     // The levels without a password: one made from the CRC and the level,
     // spelt unlike any other of the set.
     std::set<std::string> taken;
@@ -173,21 +188,32 @@ LevelSet read_levels(const Bytes& file, const std::string& path, bool pack) {
         if (has_password[n])
             taken.insert(password_letters(set, n));
     uint32_t seed = set.crc();
-    for (unsigned n = 0; n < set.count; ++n) {
-        if (has_password[n])
-            continue;
-        uint8_t* const code = &set.passwords[3 * n];
-        do {
-            for (int pair = 0; pair < 3; ++pair) {
-                seed = seed * 1103515245u + 12345u;
-                code[pair] = uint8_t((seed >> 16) % 15 << 4 | (seed >> 24) % 5);
-            }
-        } while (!taken.insert(password_letters(set, n)).second);
-        letters.code(password_letters(set, n), code); // spelt as a file reads it back
-    }
-    for (unsigned n = set.count; n < LevelSet::most; ++n) // as the records
-        set.passwords.insert(set.passwords.end(), set.passwords.end() - 3, set.passwords.end());
+    for (unsigned n = 0; n < set.count; ++n)
+        if (!has_password[n])
+            make_password(set, n, seed, taken);
+    pad_levels(set);
     return set;
+}
+
+void pad_levels(LevelSet& set) {
+    const unsigned size = LevelSet::record_size;
+    set.records.resize(set.count * size);
+    set.passwords.resize(set.count * 3);
+    for (unsigned n = set.count; n < LevelSet::most; ++n) {
+        set.records.insert(set.records.end(), set.records.end() - size, set.records.end());
+        set.passwords.insert(set.passwords.end(), set.passwords.end() - 3, set.passwords.end());
+    }
+}
+
+void new_password(LevelSet& set, unsigned level) {
+    std::set<std::string> taken;
+    for (unsigned n = 0; n < set.count; ++n)
+        if (n != level)
+            taken.insert(password_letters(set, n));
+    if (set.passwords.size() < 3 * (level + 1))
+        set.passwords.resize(3 * (level + 1));
+    uint32_t seed = set.crc() + 7919u * level;
+    make_password(set, level, seed, taken);
 }
 
 std::string write_levels(const LevelSet& set) {

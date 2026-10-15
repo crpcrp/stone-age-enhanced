@@ -400,6 +400,20 @@ struct Game : GameNames {
     // The score as a number.
     unsigned score_value() const;
 
+    // --- Level editor (editor.cpp; ENHANCEMENTS.md, E9), enhanced mode only ---
+    // F9 in the menu: a map of the level set played, or a new pack, chosen in
+    // the map selector, edited on its board, played, checked and saved as a
+    // pack in levels/.
+    void level_editor() const;
+    // The map selector as the editor opens it: every map shown, and after
+    // the last of a pack with fewer than 100 an empty slot (`levels`). The
+    // map chosen, 0-99, or -1 for Esc and -2 for N, a new pack.
+    static const int edit_left = -1, edit_new_pack = -2;
+    int choose_map_to_edit() const;
+    // `F9 - EDITOR` on the original's menu picture, in the picture buffer,
+    // below the line add_stats_line puts there.
+    void add_editor_line() const;
+
     // --- Statistics (stats.cpp; ENHANCEMENTS.md, E4), enhanced mode only ---
     // F8 in the menu: page 1 the totals, then the maps of the level set
     // played, ten to a page, sorted by number or by attempts (Tab or S). The
