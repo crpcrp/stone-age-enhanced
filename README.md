@@ -25,7 +25,10 @@ original authors or rights holders.
 ## Play in the browser
 
 **<https://crpcrp.github.io/stone-age-enhanced/>**: the free set, nothing to
-install. It needs a keyboard. Scores and settings stay in that browser;
+install. It plays with a keyboard, a gamepad or, on a phone or tablet, by
+touch: tap a menu's lines or a map, and use the buttons beside the picture
+for the keys. On Android the first tap makes the game fullscreen; on an
+iPhone, add the page to the home screen. Scores and settings stay in that browser;
 **Export saves** and **Import saves** keep them in a zip. If you own the
 original game, **Add the original game (zip)** takes a zip of `SA_V1_00.EXE`
 and its eight `.CMF` songs; it is unpacked in your browser and never
@@ -67,7 +70,16 @@ in one folder. [BUILDING.md](BUILDING.md) has more detail.
 
 - **In a level:** the arrow keys move; Space or Enter selects or works a
   platform; P pauses; Q retries; Esc leaves.
-- **In the menus:** the function keys shown on screen.
+- **In the menus:** the function keys shown on screen. In enhanced mode a
+  marker points at one line: the up and down arrows move it, Enter or Space
+  acts as that line's key.
+- **Gamepad** (enhanced mode): the D-pad or the left stick are the arrow
+  keys, A Enter, X Space, B Esc, Start P (pause), Back held half a second Q
+  (retry), LB and RB PgUp and PgDn. For a password or a name, up and down
+  change the letter, right accepts it, left deletes and A finishes.
+- **Touch** (a touch screen, in both modes): a tap on a line of the menu,
+  Options, setup or the jukebox acts as its key; in the map selector a tap
+  moves the cursor to a map and a second tap plays it.
 - **Maps (F2):** every map reached so far, 20 to a page. The arrow keys,
   PgUp/PgDn, Home and End choose one; Enter or Space plays it from there
   with a new score and five lives. Maps not reached yet show as grey;

@@ -1,8 +1,8 @@
 // SDL host for the game. All game behavior is the readable program of game.hpp
 // on stone::Machine; this file only presents frames, feeds keys, plays the songs
 // the game asks its driver for, and stores the score file.
-//   stone_play [package] [--free] [--original] [--ticks N] [--keys FILE]
-//              [--screenshot FILE.bmp]
+//   stone_play [package] [--free] [--original] [--fresh] [--ticks N]
+//              [--keys FILE] [--screenshot FILE.bmp]
 // The asset package (made by stone_assets) defaults to stoneage.dat beside the
 // player: the free asset set. If the original game's files are found in a
 // folder original_data, Options can choose the original's graphics, maps and
@@ -12,7 +12,11 @@
 // Enhanced mode follows the setting saved in STONEAGE.ENH (on without one);
 // --original turns it off for this run without changing the saved setting.
 // --keys gives a scripted run (--ticks) its keys: lines `tick scan`, the scan
-// byte in hex (80h added for a release) latched from that tick on.
+// byte in hex (80h added for a release) latched from that tick on, or `tick
+// tap x y`, a tap at that pixel of the game's picture, as a finger's.
+// --fresh plays as if nothing were saved yet: no STONEAGE.ENH, no scores.
+// A gamepad and taps on the screen's lines send keys too (ENHANCEMENTS.md,
+// E6); in the browser the page's buttons send them (stone_key, stone_type).
 // In the browser the scores, settings and original.dat are kept in /save,
 // which web/saves.js keeps in IndexedDB; the page exports and imports them
 // as a zip (stone_export_saves, stone_import_saves). There original.dat is
@@ -23,6 +27,7 @@
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_gamepad.h>
 #include <SDL3/SDL_hints.h>
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_keyboard.h>
@@ -34,6 +39,7 @@
 #include "zip.hpp"
 #include "settings.hpp"
 #include "audio.hpp"
+#include "gamepad.hpp"
 #include "host_clock.hpp"
 #include "host_sdl.hpp"
 #include "keyboard.hpp"
@@ -42,6 +48,7 @@
 #include <cctype>
 #include <cstdio>
 #include <ctime>
+#include <deque>
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -76,6 +83,20 @@ void type_key(stone::Machine& machine, const SDL_KeyboardEvent& key) {
              (key.scancode >= SDL_SCANCODE_INSERT && key.scancode <= SDL_SCANCODE_UP)) {
         machine.type(0); // extended key: zero, then the scan code
         machine.type(stone::dos_scan(key.scancode));
+    }
+}
+// The same for a key sent as a scan byte, by a button of the page or a tap.
+void type_scan(stone::Machine& machine, uint8_t code) {
+    const uint8_t control[] = {0, 27, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 9};
+    if (code < 16 && control[code])
+        machine.type(control[code]);
+    else if (code == 0x1c)
+        machine.type(13);
+    else if (code == 0x39)
+        machine.type(' ');
+    else if ((code >= 0x3b && code <= 0x44) || (code >= 0x47 && code <= 0x53)) {
+        machine.type(0);
+        machine.type(code);
     }
 }
 void type_text(stone::Machine& machine, const char* utf8) {
@@ -138,8 +159,13 @@ std::string find_original_package(const std::string& base) {
 struct Player {
     std::string screenshot;
     long scripted_ticks = -1;
-    std::vector<std::pair<long, uint8_t>> keys; // tick, scan byte
-    bool scripted = false;
+    struct Key {
+        long tick;
+        uint8_t scan; // or 0 for a tap at x, y
+        float x, y;
+    };
+    std::vector<Key> keys;
+    bool scripted = false, fresh = false;
     std::string score_directory;
     std::unique_ptr<stone::Package> free_package, original_package;
     stone::Bytes settings_file;
@@ -156,6 +182,10 @@ struct Player {
     stone::HostTickClock clock;
     uint64_t previous = 0;
     uint8_t scan = 0;
+    // Keys sent by a gamepad, a button of the page or a tap, latched one a
+    // tick, so that a press and its release both reach the game.
+    std::deque<uint8_t> queued;
+    std::unique_ptr<stone::Gamepad> gamepad;
     bool quit = false, focused = true, typing = false;
     // In the browser the game stands still while the canvas does not have the
     // keyboard, as before the first click (stone_focus).
@@ -175,6 +205,14 @@ struct Player {
         return score_directory + (free_maps && name == "STONEAGE.HI" ? "FREEMAPS.HI" : name);
     }
     void play_song();
+    // A key pressed or released other than on the keyboard; typed too while
+    // the game reads characters.
+    void key(uint8_t code, bool down);
+    // A tap at a pixel of the game's picture: the nearest of the screen's
+    // lines (Machine::lines) within a few pixels acts.
+    void tap(float x, float y);
+    // The keyboard and every other key let go, as the window loses focus.
+    void release_keys();
     // One pass of the loop: events, ticks, the picture and sound. False when
     // the run is over.
     bool step();
@@ -194,22 +232,29 @@ Player::Player(int argc, char** argv) {
                 throw std::runtime_error(std::string("Cannot read ") + argv[i]);
             long tick;
             std::string scan;
-            while (file >> tick >> scan)
-                keys.emplace_back(tick, uint8_t(std::stoul(scan, nullptr, 16)));
+            while (file >> tick >> scan) {
+                Key key = {tick, 0, 0, 0};
+                if (scan == "tap")
+                    file >> key.x >> key.y;
+                else
+                    key.scan = uint8_t(std::stoul(scan, nullptr, 16));
+                keys.push_back(key);
+            }
             std::stable_sort(keys.begin(), keys.end(),
-                             [](const std::pair<long, uint8_t>& a,
-                                const std::pair<long, uint8_t>& b) { return a.first < b.first; });
+                             [](const Key& a, const Key& b) { return a.tick < b.tick; });
         } else if (arg == "--screenshot" && i + 1 < argc)
             screenshot = argv[++i];
         else if (arg == "--free")
             free_set = true;
         else if (arg == "--original")
             original = true;
+        else if (arg == "--fresh")
+            fresh = true;
         else if (!arg.empty() && arg[0] != '-')
             path = arg;
         else
             throw std::runtime_error(
-                "Usage: stone_play [package] [--free] [--original] [--ticks N] "
+                "Usage: stone_play [package] [--free] [--original] [--fresh] [--ticks N] "
                 "[--keys FILE] [--screenshot FILE.bmp]");
     }
     scripted = scripted_ticks >= 0;
@@ -237,7 +282,8 @@ Player::Player(int argc, char** argv) {
     // STONEAGE.ENH, empty when there is none: every default. A scripted
     // run keeps what it saves in memory, so it never changes the
     // player's progress (ENHANCEMENTS.md, rule 5).
-    read(score_directory + stone::Settings::file_name, settings_file);
+    if (!fresh)
+        read(score_directory + stone::Settings::file_name, settings_file);
     choose_assets();
 
     SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE | (scripted ? SDL_WINDOW_HIDDEN : 0);
@@ -253,6 +299,14 @@ Player::Player(int argc, char** argv) {
 #endif
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_AUDIO))
         throw std::runtime_error(SDL_GetError());
+    // A scripted run takes no keys but its own. Without gamepads the game
+    // still plays.
+    if (!scripted) {
+        if (SDL_InitSubSystem(SDL_INIT_GAMEPAD))
+            gamepad.reset(new stone::Gamepad(machine, [this](uint8_t code) { queued.push_back(code); }));
+        else
+            std::cerr << "Gamepads unavailable: " << SDL_GetError() << "\n";
+    }
     if (!SDL_CreateWindowAndRenderer("Stone Age", 960, 600, flags, &window, &renderer))
         throw std::runtime_error(SDL_GetError());
     view.reset(new stone::GameView(renderer));
@@ -287,7 +341,7 @@ Player::Player(int argc, char** argv) {
             return !data.empty();
         }
         // Without a saved table the game keeps the one built into it.
-        return read(score_file(name), data);
+        return !fresh && read(score_file(name), data);
     };
     machine.save_file = [this](const std::string& name, const stone::Bytes& data) {
         if (name == stone::Settings::file_name) {
@@ -295,6 +349,8 @@ Player::Player(int argc, char** argv) {
             if (scripted)
                 return;
         }
+        if (fresh)
+            return;
         stone::write_file(score_file(name), data);
 #ifdef __EMSCRIPTEN__
         // Into IndexedDB at once, so it is kept even if the tab closes next.
@@ -308,6 +364,7 @@ Player::Player(int argc, char** argv) {
 }
 
 Player::~Player() {
+    gamepad.reset();
     if (stream)
         SDL_DestroyAudioStream(stream);
     view.reset();
@@ -358,8 +415,7 @@ bool Player::step() {
             // Not original: without focus the game stands still, and a held
             // key is released because its key-up would never arrive.
             focused = false;
-            if (scan && !(scan & 128))
-                scan |= 128;
+            release_keys();
         } else if (event.type == SDL_EVENT_WINDOW_FOCUS_GAINED) {
             focused = true;
             clock.reset();
@@ -371,13 +427,29 @@ bool Player::step() {
                 type_key(machine, event.key);
         } else if (event.type == SDL_EVENT_TEXT_INPUT && machine.reads_characters())
             type_text(machine, event.text.text);
+        else if (event.type == SDL_EVENT_FINGER_DOWN && !scripted) {
+            // A touch on the picture (E6); in the browser, the canvas.
+            int width = 0, height = 0;
+            float x, y;
+            SDL_GetWindowSize(window, &width, &height);
+            if (view->to_game(event.tfinger.x * width, event.tfinger.y * height, x, y))
+                tap(x, y);
+        } else if (gamepad)
+            gamepad->handle(event);
     }
+    if (gamepad)
+        gamepad->update(SDL_GetTicksNS());
     if (machine.reads_characters() != typing) {
         typing = !typing;
         if (typing)
             SDL_StartTextInput(window);
         else
             SDL_StopTextInput(window);
+#ifdef __EMSCRIPTEN__
+        // A phone shows its keyboard only for a text field (web/shell.html).
+        EM_ASM({ if (Module.setTyping) Module.setTyping($0, $1); }, typing,
+               machine.showing == stone::Machine::password);
+#endif
     }
     const auto current = SDL_GetTicksNS();
     if (focused && !paused)
@@ -385,8 +457,16 @@ bool Player::step() {
     previous = current;
     bool advanced = image.rgb.empty();
     while (clock.next() && !machine.finished()) {
-        for (; next_key < keys.size() && keys[next_key].first <= ticks; ++next_key)
-            scan = keys[next_key].second;
+        for (; next_key < keys.size() && keys[next_key].tick <= ticks; ++next_key) {
+            if (keys[next_key].scan)
+                scan = keys[next_key].scan;
+            else
+                tap(keys[next_key].x, keys[next_key].y);
+        }
+        if (!queued.empty()) {
+            scan = queued.front();
+            queued.pop_front();
+        }
         machine.tick(scan);
         ++ticks;
         advanced = true;
@@ -403,6 +483,39 @@ bool Player::step() {
                 throw std::runtime_error(SDL_GetError());
         }
     return !quit && !machine.finished() && !(scripted && ticks >= scripted_ticks);
+}
+
+void Player::key(uint8_t code, bool down) {
+    queued.push_back(down ? code : uint8_t(code | 128));
+    if (down && machine.reads_characters())
+        type_scan(machine, code);
+}
+
+void Player::tap(float x, float y) {
+    const stone::Machine::Line* nearest = nullptr;
+    float best = 6; // pixels from a line, at most
+    for (const stone::Machine::Line& line : machine.lines) {
+        const float dx = std::max({float(line.x) - x, 0.0f, x - float(line.x + line.width)});
+        const float dy = std::max({float(line.y) - y, 0.0f, y - float(line.y + line.height)});
+        const float distance = std::max(dx, dy);
+        if (distance <= best) {
+            best = distance;
+            nearest = &line;
+        }
+    }
+    if (!nearest)
+        return;
+    if (nearest->key) {
+        key(nearest->key, true);
+        key(nearest->key, false);
+    } else
+        machine.tapped = int(nearest - machine.lines.data());
+}
+
+void Player::release_keys() {
+    queued.clear();
+    if (scan && !(scan & 128))
+        scan |= 128;
 }
 
 void Player::finish() {
@@ -605,10 +718,25 @@ extern "C" EMSCRIPTEN_KEEPALIVE void stone_focus(int focus) {
     if (!player)
         return;
     player->paused = !focus;
-    if (!focus && player->scan && !(player->scan & 128))
-        player->scan |= 128;
+    if (!focus)
+        player->release_keys();
     if (focus)
         player->clock.reset();
+}
+#endif
+
+#ifdef __EMSCRIPTEN__
+// A button of the page pressed or released (web/shell.html; ENHANCEMENTS.md,
+// E6): a scan byte, as a key of the keyboard sends it.
+extern "C" EMSCRIPTEN_KEEPALIVE void stone_key(int code, int down) {
+    if (web_player && code > 0 && code < 128)
+        web_player->key(uint8_t(code), down != 0);
+}
+
+// Text typed in the page's text field, while the game reads characters.
+extern "C" EMSCRIPTEN_KEEPALIVE void stone_type(const char* utf8) {
+    if (web_player && web_player->machine.reads_characters())
+        type_text(web_player->machine, utf8);
 }
 #endif
 

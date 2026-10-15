@@ -259,6 +259,8 @@ private:
     Screen screen;
 };
 
+class LineCursor;
+
 struct Game : GameNames {
     explicit Game(Machine& machine)
         : GameNames(machine), screen(machine), board(machine), clock(machine), crumbling(machine),
@@ -294,8 +296,9 @@ struct Game : GameNames {
     enum MenuChoice { menu_again, pictures, quit };
     MenuChoice menu() const;
     // CS:2509. The menu picture with LIGHT, if it is on, and A or B. Not
-    // original: in enhanced mode the F8 line too (E4).
-    void draw_menu() const;
+    // original: in enhanced mode the F8 line too (E4), and the line
+    // cursor's marker (E6).
+    void draw_menu(const LineCursor* cursor = nullptr) const;
     // CS:0010. A game from this level until all lives are lost, Esc, or
     // the last level is completed. Not original: in enhanced mode each level
     // started is recorded as reached and as the last started, unless `counts`
@@ -343,8 +346,9 @@ struct Game : GameNames {
     // CS:2e6d. The jukebox: F1-F8 add a song to the playlist, F9 plays the
     // last one, Del or Backspace removes it, F10 empties the list, Esc leaves.
     void jukebox() const;
-    // CS:2d6c. The playlist as numbers.
-    void draw_playlist() const;
+    // CS:2d6c. The playlist as numbers. Not original: the line cursor's
+    // marker (E6).
+    void draw_playlist(const LineCursor* cursor = nullptr) const;
     // CS:2dd0, 2dea. Text in the jukebox's own letters; CR starts a line.
     void write_jukebox(const uint8_t* text) const;
     void write_jukebox(uint8_t character) const;
@@ -356,11 +360,12 @@ struct Game : GameNames {
     // The options picture with its sprites, shown.
     void show_options_screen() const;
     // CS:2f4f, the lines drawn by code over the picture's.
-    void draw_options() const;
+    void draw_options(const LineCursor* cursor = nullptr) const;
     // Not original. Lines of `count` over those of the options picture,
-    // each with sprite `sprites[n]` (ON or OFF) after it, or none for 0.
+    // each with sprite `sprites[n]` (ON or OFF) after it, or none for 0;
+    // the line cursor's marker (E6) with them.
     void draw_option_lines(const char* const* labels, const uint8_t* sprites,
-                           unsigned count) const;
+                           unsigned count, const LineCursor* cursor = nullptr) const;
     // Not original, F2 in Options: F1 images, F2 maps, F3 music, each
     // free or the original's, F4 the display preset (ENHANCEMENTS.md, E5),
     // F10 back to Options. The assets change only with the original game's
@@ -449,6 +454,16 @@ struct Game : GameNames {
     uint8_t wait_for_next_key() const;
     // CS:1dd7. The same for at most so many ticks. True when a key came.
     bool wait_for_key(unsigned ticks) const;
+    // Not original (lines.cpp; ENHANCEMENTS.md, E6). wait_for_next_key on a
+    // screen with a line cursor: in enhanced mode its marker pulses, the
+    // arrow keys move it (`redraw` then draws the screen again) and Enter or
+    // Space give the key of its line.
+    uint8_t wait_for_line_key(LineCursor& cursor, const std::function<void()>& redraw) const;
+    // The lines of the menu, of Options with `count` lines above F10, and
+    // of the jukebox, as LineCursor takes them.
+    std::vector<Machine::Line> menu_lines() const;
+    std::vector<Machine::Line> option_lines(unsigned count) const;
+    std::vector<Machine::Line> jukebox_lines() const;
 
     // --- A level (game.cpp) ---
     // CS:0fd2. Loads the level, draws board and strip and wipes them in.
@@ -607,5 +622,46 @@ struct Game : GameNames {
     void draw_inventory() const;
     // CS:09b5. number_glyphs becomes the three decimal digits of `value`.
     void number_to_glyphs(uint8_t value) const;
+};
+
+// Not original (lines.cpp; ENHANCEMENTS.md, E6). The lines of the screen
+// showing, as long as this lives: in Machine::lines for the host, which
+// sends a line's key when it is tapped (in both modes) or puts the index of a
+// line without a key in Machine::tapped. leave(), or the end of this, puts
+// back the lines and the screen there were before.
+// When the lines have keys and enhanced mode is on, a marker in a colour of
+// its own (253, which the menu screens leave unused) pulses left of one of
+// them: up and down move it, Enter or Space act as its line's key. Its colour
+// is black while the screen fades, as hide() leaves it, and comes back with
+// the next pulse().
+class LineCursor {
+public:
+    LineCursor(const Game& game, Machine::Showing showing, std::vector<Machine::Line> lines,
+               unsigned at = 0);
+    ~LineCursor() { leave(); }
+    LineCursor(const LineCursor&) = delete;
+    LineCursor& operator=(const LineCursor&) = delete;
+    // A key that went down. Up and down move the cursor and give 0, with
+    // moved() true; Enter and Space give the key of its line; a line's own
+    // key moves the cursor to that line. Any other key comes back as it is.
+    uint8_t key(uint8_t scan);
+    bool moved() const { return was_moved; }
+    // The marker, onto the page being drawn.
+    void draw() const;
+    // Once a tick: the marker's colour, brighter and darker by turns.
+    void pulse();
+    void hide();
+    void leave();
+    // Different lines for the same screen, with the cursor on `line`.
+    void replace(std::vector<Machine::Line> lines, unsigned line = 0);
+    unsigned at = 0;
+
+private:
+    bool active() const;
+    const Game& g;
+    Machine::Showing showing_before;
+    std::vector<Machine::Line> lines_before;
+    unsigned ticks = 0;
+    bool was_moved = false, left = false;
 };
 } // namespace stone

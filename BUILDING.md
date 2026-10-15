@@ -77,6 +77,13 @@ How it differs from the desktop:
   `/save/original.dat` as on the desktop; the loose files are deleted.
 - **Options.** `?original` and `?free` in the page's address stand for
   `--original` and `--free`.
+- **Touch** (ENHANCEMENTS.md, E6). On a touch screen (`pointer: coarse`) the
+  page shows buttons beside the picture that send keys through
+  `stone_key(scan, down)`, a text field for typing while the game reads
+  characters (`stone_type`), and a ✕ that leaves fullscreen. Taps on the
+  picture reach the game as SDL finger events. `web/manifest.webmanifest`
+  and its icons let a phone add the page to its home screen, fullscreen and
+  sideways.
 
 `.github/workflows/web.yml` builds the page on every push and pull request
 and publishes it on GitHub Pages from `main`, with `LICENSE`, `LEGAL.md`
@@ -139,12 +146,15 @@ replacing files; it is not encryption.
   (`third_party/ymfm/`, one change), one register write a sample.
 - `src/assets.*`, `content.*`, `package.*`, `assets_main.cpp`: the editable
   assets, the package format and `stone_assets`.
-- `src/play.cpp`, `host_*.hpp`: the SDL host (window, keys, audio, score
-  file). The rest of `src/` does not use SDL.
+- `src/play.cpp`, `host_*.hpp`, `gamepad.*`: the SDL host (window, keys,
+  gamepad, taps, audio, score file). The rest of `src/` does not use SDL.
+- `src/selector.cpp`, `stats.cpp`, `lines.cpp`: the map selector, the
+  statistics and the lines of the function-key screens with their cursor,
+  of enhanced mode.
 - `src/zip.*`: reading and writing zip files, for the web page's saves.
 - `web/`: the web page around the browser build (`shell.html`) and its
   saves in IndexedDB (`saves.js`) and the original game from a zip
-  (`original.js`); see "Web version" above.
+  (`original.js`), its manifest and icons; see "Web version" above.
 - `src/stone.*`: byte buffers, files, BMP output, CRC-32.
 
 `src/game_data.inc`, `game_names.hpp`, `keyboard.hpp`, `music_lift.inc` and
@@ -156,6 +166,11 @@ part of this repository; in a fork, edit them like any other source.
 `stone_tests` needs nothing of the original game and is built with every
 preset; run it with `ctest --test-dir build/cmake -C Release` (or the build tree
 of the preset used). It tests the saved settings and the zip files (`tests/`).
+With the player, CTest also runs scripted runs of the free set that tap the
+screen (`tests/taps/`) and compares their screenshots by SHA-256
+(`tests/screenshot_test.cmake`). They use `stone_play --fresh`, which plays
+as if nothing were saved; a line `tick tap x y` of a `--keys` file taps that
+pixel of the game's picture.
 
 The comparison tests replay key scripts on the game and compare every 70 Hz
 tick with a run of the original executable under the same keys. They, their
@@ -178,7 +193,9 @@ build of the cloud sessions and the web build are the exceptions.
 
 In the browser:
 
-- The game needs a keyboard; there are no touch controls.
+- Touch has been tried in Chromium's touch emulation only; still to be
+  checked by hand on an Android phone and an iPhone, as are gamepads in
+  the browser.
 - The browser keeps some keys (Ctrl+W, Ctrl+T, Ctrl+N), which the game does
   not use. In fullscreen Esc leaves fullscreen first, except in Chromium,
   where the fullscreen button locks it for the game.

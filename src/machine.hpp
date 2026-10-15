@@ -96,6 +96,22 @@ public:
     // Options changes it, and the host reads it every frame and shows the
     // picture that way while enhanced mode is on.
     unsigned display = 0;
+    // Not original (ENHANCEMENTS.md, E6): what the host needs to know of the
+    // screen showing to play it with a gamepad or by touch. The game sets
+    // these as a screen starts and puts them back as it ends; the host reads
+    // them. `lines` are the places a tap acts on, in the game's 320x200
+    // pixels: a line of a function-key screen sends its key, pressed and
+    // released; a line without a key (the map selector's miniatures) puts its
+    // index in `tapped` for the screen to read.
+    enum Showing { other, menu, options, setup, jukebox, selector, password, name_entry };
+    struct Line {
+        unsigned x, y, width, height;
+        uint8_t key;
+    };
+    Showing showing = other;
+    std::vector<Line> lines;
+    int tapped = -1;
+    unsigned menu_line = 0; // where the menu's cursor was left
     // While the game has its INT 9 handler removed (password and name entry)
     // it reads characters through DOS instead of scan bytes. Extended keys
     // arrive as 0 followed by the scan code, as DOS delivers them.
