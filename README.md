@@ -63,9 +63,16 @@ in one folder. [BUILDING.md](BUILDING.md) has more detail.
   map's best time and best points. Tab
   or P opens the password screen of the original (passwords still work
   there), Esc goes back.
+- **Statistics (F8):** the totals of every game played (time, games,
+  levels cleared, steps, hourglasses, keys, gates, teleports and
+  platforms), then each map played of the current set: attempts, clears,
+  lives lost, give-ups and best time, ten to a page. The arrow keys and
+  PgUp/PgDn turn the pages, Tab or S sorts the maps by number or by
+  attempts, Esc goes back.
 - **Options (F5):** F1 enhanced mode, F2 assets, F3 full background, F4
   flat stone, F5 sound. With enhanced mode off the game is the original's:
-  F2 in the menu is the password screen and no progress is recorded.
+  F2 in the menu is the password screen, F8 does nothing and no progress
+  is recorded.
   `stone_play.exe --original` plays one session that way without changing
   the setting.
 - **Assets (F2 in Options):** F1 images, F2 maps, F3 music, each FREE or
@@ -77,9 +84,9 @@ in one folder. [BUILDING.md](BUILDING.md) has more detail.
 
 The furthest map reached and the best result on each map cleared (time
 from arrival to exit, pauses left out, and points including the bonus),
-for each set of levels, the enhanced-mode setting
+for each set of levels, the statistics, the enhanced-mode setting
 and the asset choices are kept in `STONEAGE.ENH` beside the player. Games
-started after MAYDAY record no bests. The high
+started after MAYDAY record no bests and no statistics. The high
 scores of the original maps stay in the original's `STONEAGE.HI`; those of
 the free maps are in `FREEMAPS.HI`.
 

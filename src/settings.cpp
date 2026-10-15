@@ -126,6 +126,83 @@ unsigned Settings::improve_best(uint32_t levels, unsigned level, unsigned ticks,
     return beaten;
 }
 
+namespace {
+// `count` numbers of up to 18 digits, one space apart; false for anything else.
+bool read_numbers(const std::string& text, uint64_t* numbers, unsigned count) {
+    std::size_t at = 0;
+    for (unsigned n = 0; n < count; ++n) {
+        const std::size_t end = n + 1 < count ? text.find(' ', at) : text.size();
+        if (end == std::string::npos)
+            return false;
+        const std::string number = text.substr(at, end - at);
+        if (number.empty() || number.size() > 18 ||
+            number.find_first_not_of("0123456789") != std::string::npos)
+            return false;
+        numbers[n] = std::stoull(number);
+        at = end + 1;
+    }
+    return true;
+}
+
+std::string write_numbers(const uint64_t* numbers, unsigned count) {
+    std::string text;
+    for (unsigned n = 0; n < count; ++n)
+        text += (n ? " " : "") + std::to_string(numbers[n]);
+    return text;
+}
+
+std::string stats_key(uint32_t levels, unsigned level) {
+    char text[32];
+    std::snprintf(text, sizeof text, "stats %08x %u", unsigned(levels), level);
+    return text;
+}
+} // namespace
+
+Settings::MapStats Settings::map_stats(uint32_t levels, unsigned level) const {
+    std::string value;
+    uint64_t numbers[5];
+    MapStats stats;
+    if (find(stats_key(levels, level), value) && read_numbers(value, numbers, 5)) {
+        stats.attempts = numbers[0];
+        stats.clears = numbers[1];
+        stats.lives_lost = numbers[2];
+        stats.give_ups = numbers[3];
+        stats.ticks = numbers[4];
+    }
+    return stats;
+}
+
+void Settings::set_map_stats(uint32_t levels, unsigned level, const MapStats& stats) {
+    const uint64_t numbers[5] = {stats.attempts, stats.clears, stats.lives_lost, stats.give_ups,
+                                 stats.ticks};
+    set(stats_key(levels, level), write_numbers(numbers, 5));
+}
+
+Settings::Totals Settings::totals() const {
+    std::string value;
+    uint64_t numbers[9];
+    Totals totals;
+    if (find("totals", value) && read_numbers(value, numbers, 9)) {
+        totals.ticks = numbers[0];
+        totals.games = numbers[1];
+        totals.cleared = numbers[2];
+        totals.steps = numbers[3];
+        totals.hourglasses = numbers[4];
+        totals.keys = numbers[5];
+        totals.gates = numbers[6];
+        totals.teleports = numbers[7];
+        totals.platforms = numbers[8];
+    }
+    return totals;
+}
+
+void Settings::set_totals(const Totals& totals) {
+    const uint64_t numbers[9] = {totals.ticks, totals.games,       totals.cleared,
+                                 totals.steps, totals.hourglasses, totals.keys,
+                                 totals.gates, totals.teleports,   totals.platforms};
+    set("totals", write_numbers(numbers, 9));
+}
+
 bool Settings::find(const std::string& key, std::string& value) const {
     for (const std::string& line : lines)
         if (line.compare(0, key.size() + 1, key + ' ') == 0) {

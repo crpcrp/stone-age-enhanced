@@ -73,11 +73,17 @@ public:
     // Enhanced mode (ENHANCEMENTS.md, E0): off, the game is the original's.
     // The player turns it on from the saved setting; the tests leave it off.
     bool enhanced = false;
-    // Not original (ENHANCEMENTS.md, E3): whether the level being played can
-    // set a best, the ticks played since the player appeared in it, and the
-    // score it started with. Kept here, not in the game's memory (rule 2).
-    bool timing = false;
+    // Not original (ENHANCEMENTS.md, E3 and E4): whether the level being
+    // played can set a best and counts in the statistics, the ticks played
+    // since the player appeared in it, and the score it started with. Kept
+    // here, not in the game's memory (rule 2).
+    bool recording = false;
     unsigned level_ticks = 0, level_score = 0;
+    // Not original (E4): what the player did in the level being played,
+    // added to the totals in STONEAGE.ENH when it ends.
+    struct Tally {
+        unsigned steps = 0, hourglasses = 0, keys = 0, gates = 0, teleports = 0, platforms = 0;
+    } tally;
     // Not original (Options F2): the original game's files are there,
     // so Options can choose its graphics, maps and music in place of the free
     // ones. The game calls change_assets once it has saved new choices in

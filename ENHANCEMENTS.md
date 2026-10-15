@@ -3,8 +3,8 @@
 What the enhanced game adds to the original, and the plan for what comes
 next. The code refers to the entries here by number (`ENHANCEMENTS.md, E1`).
 
-- **E0 to E3** are done.
-- **E4 to E9** are planned. Their order below is the order of work: each
+- **E0 to E4** are done.
+- **E5 to E9** are planned. Their order below is the order of work: each
   one builds on those before it.
 
 ## Rules for every enhancement
@@ -119,7 +119,7 @@ tenths of a second at 70 ticks a second, and marks a cleared map with a
 yellow triangle. The score's six digits go round past 999,999, and the
 points are counted round with them. `stone_tests` checks the `best` lines.
 
-## E4: statistics
+## E4: statistics (done)
 
 **What.** A statistics screen, opened with F8 in the menu.
 
@@ -155,6 +155,27 @@ a new `stats.cpp`, `assets/screen_title.bmp`, `ASSETS.md`.
 
 **Done when** the numbers add up after a few games: the attempts on a map
 equal its clears plus its lives lost plus its give-ups.
+
+**As built.** `Machine::recording` (E3's `timing`, renamed) says whether a
+level counts, for bests and statistics alike, and `Machine::tally` counts
+what the player does in it; `run_game` clears the tally as each level
+starts. Steps are counted in `walk` when the player sets off for the next
+cell, so neither platform rides nor the selector count as steps. A key is
+counted when it is picked up (not the 256th, which is left lying), a gate
+when it opens, a teleport when the player goes into one. `launch_platform`
+counts every platform set off, also by the selector, so the screen says
+`PLATFORMS MOVED`. `record_stats()` (`stats.cpp`) runs once after the wipe
+that ends each level and writes
+`stats <crc> <level> <attempts> <clears> <lives lost> <give-ups> <ticks>`
+and `totals <ticks> <games> <cleared> <steps> <hourglasses> <keys> <gates>
+<teleports> <platforms>`; ticks are those E3 counts, from the end of the
+arrival. A lost life is the time running out or Q. Page 1 also says how
+many maps of the current set have a best. The map pages list only maps
+with an attempt, with a column for give-ups beside the four planned, so
+each row visibly adds up; Tab or S sorts them by attempts, the most first,
+and Home and End jump to the first and last page. With enhanced mode off
+F8 is ignored and the menu is the original's. `stone_tests` checks the
+`stats` and `totals` lines.
 
 ## E5: display: fullscreen, scaling, aspect ratio and a CRT look
 

@@ -2,6 +2,7 @@
 // screens, the pages between levels, music.
 #include "game.hpp"
 #include <algorithm>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -191,7 +192,7 @@ Game::MenuChoice Game::menu() const {
                 return pictures;
             if (key == esc)
                 return quit;
-            if (key < f1 || key > f7)
+            if (key < f1 || key > (m.enhanced ? f8 : f7)) // not original: F8 (E4)
                 continue;
             if (key == f6)
                 easy_mode() ^= 0xff;
@@ -204,6 +205,7 @@ Game::MenuChoice Game::menu() const {
                 case f2: m.enhanced ? map_selector() : enter_password(); break;
                 case f3: show_scores(); break;
                 case f4: jukebox(); break;
+                case f8: statistics(); break;
                 default: options();
                 }
                 enter_score();
@@ -222,7 +224,48 @@ void Game::draw_menu() const {
         screen.draw_sprite(184, 239, 60);
     }
     screen.draw_sprite(background_bank() & 1 ? 182 : 181, 208, 127); // A or B
+    if (m.enhanced) // not original (E4)
+        draw_stats_entry();
     screen.flip();
+}
+
+// Not original (ENHANCEMENTS.md, E4). The original's picture has no line for
+// F8: it is written below the others, in the 8x16 font of the asset set, on
+// a strip of the commonest colour there, in the colour of the picture that
+// stands out from that most. The font takes the buffer the picture is in, so
+// the picture is unpacked again afterwards.
+void Game::draw_stats_entry() const {
+    if (!m.original_assets || !load_settings().original(Settings::images))
+        return; // the free picture has the line drawn in
+    const char line[] = "F8 STATS";
+    const unsigned width = 8 * (sizeof line - 1), left = (320 - width) / 2, top = 184;
+    const uint8_t* const picture = m.at(picture_buffer()[1], 0);
+    const uint8_t* const palette = picture + 320 * 200;
+    unsigned uses[256] = {}, under[256] = {};
+    for (unsigned y = 0; y < 200; ++y)
+        for (unsigned x = 0; x < 320; ++x) {
+            const uint8_t colour = picture[y * 320 + x];
+            ++uses[colour];
+            if (y >= top - 2 && x >= left - 4 && x < left + width + 4)
+                ++under[colour];
+        }
+    const uint8_t ground = uint8_t(std::max_element(under, under + 256) - under);
+    const auto brightness = [&](unsigned colour) {
+        return int(palette[3 * colour] + palette[3 * colour + 1] + palette[3 * colour + 2]);
+    };
+    uint8_t ink = ground;
+    for (unsigned colour = 0; colour < 256; ++colour)
+        if (uses[colour] && std::abs(brightness(colour) - brightness(ground)) >
+                                std::abs(brightness(ink) - brightness(ground)))
+            ink = uint8_t(colour);
+    screen.fill(left - 4, top - 2, width + 8, 18, ground);
+    unpack(font_resource(), work_buffer());
+    const uint8_t colour = text_colour();
+    text_colour() = ink;
+    screen.move_to(left, top);
+    screen.write(reinterpret_cast<const uint8_t*>(line));
+    text_colour() = colour;
+    load_picture(menu_picture);
 }
 
 void Game::run_game(uint8_t first_level, bool counts) const {
@@ -231,12 +274,13 @@ void Game::run_game(uint8_t first_level, bool counts) const {
     new_session();
     screen.black();
     show_level_page();
-    for (;;) {
+    for (bool first = true;; first = false) {
         music.play_next();
         if (counts && m.enhanced) // not original
             record_level();
-        m.timing = counts && m.enhanced && !cheat_mode(); // E3, rule 6
+        m.recording = counts && m.enhanced && !cheat_mode(); // E3 and E4, rule 6
         m.level_score = score_value();
+        m.tally = Machine::Tally();
         start_level();
         appear();
         m.level_ticks = 0;
@@ -244,6 +288,7 @@ void Game::run_game(uint8_t first_level, bool counts) const {
         if (outcome == completed) {
             walk_out();
             screen.wipe(false);
+            record_stats(outcome, first); // not original (E4)
             if (++level() == 100) {
                 award_bonus();
                 record_best();
@@ -256,6 +301,7 @@ void Game::run_game(uint8_t first_level, bool counts) const {
         // Giving up costs no life, but ends the game like the last one lost.
         const bool over = outcome == gave_up || --lives() == 0;
         screen.wipe(false);
+        record_stats(outcome, first); // not original (E4)
         if (over) {
             show_game_over_page();
             return;

@@ -84,6 +84,51 @@ void bad_bests() {
         CHECK(!settings.best(set_a, level).cleared());
 }
 
+// E4: a line per map of each level set, and one of totals.
+void statistics() {
+    using stone::Settings;
+    Settings settings;
+    CHECK(settings.map_stats(set_a, 5).attempts == 0);
+    CHECK(settings.totals().games == 0);
+    Settings::MapStats stats;
+    stats.attempts = 4;
+    stats.clears = 1;
+    stats.lives_lost = 2;
+    stats.give_ups = 1;
+    stats.ticks = 12345678901ull;
+    settings.set_map_stats(set_a, 5, stats);
+    stats.attempts = 1;
+    settings.set_map_stats(set_b, 5, stats);
+    Settings::Totals totals;
+    totals.ticks = 70;
+    totals.games = 2;
+    totals.platforms = 9;
+    settings.set_totals(totals);
+    totals.games = 3;
+    settings.set_totals(totals);
+    const Settings saved(settings.bytes());
+    const Settings::MapStats read = saved.map_stats(set_a, 5);
+    CHECK(read.attempts == 4);
+    CHECK(read.attempts == read.clears + read.lives_lost + read.give_ups);
+    CHECK(read.ticks == 12345678901ull);
+    CHECK(saved.map_stats(set_b, 5).attempts == 1);
+    CHECK(saved.map_stats(set_a, 6).attempts == 0);
+    CHECK(saved.totals().games == 3);
+    CHECK(saved.totals().platforms == 9);
+    CHECK(text(settings.bytes()) == "stats 12345678 5 4 1 2 1 12345678901\n"
+                                    "stats deadbeef 5 1 1 2 1 12345678901\n"
+                                    "totals 70 3 0 0 0 0 0 0 9\n");
+}
+
+void bad_statistics() {
+    const stone::Settings settings(bytes("stats 12345678 1 1 1 0 0\nstats 12345678 2 1 1 0 0 x\n"
+                                         "stats 12345678 3 1 1 0 0 5 6\nstats 12345678 4 1  1 0 0 5\n"
+                                         "totals 1 2 3\n"));
+    for (unsigned level = 1; level <= 4; ++level)
+        CHECK(settings.map_stats(set_a, level).attempts == 0);
+    CHECK(settings.totals().ticks == 0);
+}
+
 void unknown_lines_kept() {
     stone::Settings settings(bytes("future 1 2 3\nenhanced 1\n# note\n"));
     settings.set_enhanced(false);
@@ -98,6 +143,8 @@ int main() {
     last_map();
     bests();
     bad_bests();
+    statistics();
+    bad_statistics();
     unknown_lines_kept();
     if (failures)
         return 1;

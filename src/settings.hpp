@@ -45,6 +45,26 @@ public:
     // parts it beat: `faster`, `higher`, both or 0.
     static const unsigned faster = 1, higher = 2;
     unsigned improve_best(uint32_t levels, unsigned level, unsigned ticks, unsigned points);
+    // `stats <crc> <level> <attempts> <clears> <lives lost> <give-ups> <ticks>`:
+    // what has happened on a map of that level set (ENHANCEMENTS.md, E4).
+    // Every attempt ends in one of the other three. All 0 without the line
+    // or with a bad value.
+    struct MapStats {
+        uint64_t attempts = 0, clears = 0, lives_lost = 0, give_ups = 0, ticks = 0;
+    };
+    MapStats map_stats(uint32_t levels, unsigned level) const;
+    void set_map_stats(uint32_t levels, unsigned level, const MapStats& stats);
+    // `totals <ticks> <games> <cleared> <steps> <hourglasses> <keys> <gates>
+    // <teleports> <platforms>`: the same over every level set (E4): the
+    // ticks played, games started, levels cleared, steps walked, hourglasses
+    // taken, keys collected, gates opened, teleports used and platforms set
+    // off. All 0 without the line or with a bad value.
+    struct Totals {
+        uint64_t ticks = 0, games = 0, cleared = 0, steps = 0, hourglasses = 0, keys = 0,
+                 gates = 0, teleports = 0, platforms = 0;
+    };
+    Totals totals() const;
+    void set_totals(const Totals& totals);
 
 private:
     // The value of the first line `key ...`; false when there is none.
