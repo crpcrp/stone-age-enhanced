@@ -416,7 +416,9 @@ were saved, for the tests.
 
 On the page (`web/shell.html`) the buttons are as planned, except that the
 row of small keys is split over the tops of the two strips: P, Q and Tab on
-the left, PgUp, PgDn and the Keys drawer on the right. The text field
+the left, PgUp, PgDn and the Keys drawer on the right. Held upright, every
+button goes below the picture, the small keys above the D-pad and the big
+ones, within reach of the thumbs. The text field
 keeps one blank in it, so that deleting shows even where a phone's keyboard
 sends no Backspace key; Enter is sent as a key. SDL 3.4 shows no keyboard
 for `SDL_StartTextInput` in the browser, so the field is always the page's.

@@ -439,7 +439,9 @@ bool Player::step() {
     }
     if (gamepad)
         gamepad->update(SDL_GetTicksNS());
-    if (machine.reads_characters() != typing) {
+    // Before its first tick the game has not taken the keyboard yet: that
+    // is not typing.
+    if (ticks && machine.reads_characters() != typing) {
         typing = !typing;
         if (typing)
             SDL_StartTextInput(window);

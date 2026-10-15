@@ -48,6 +48,10 @@
   #left { left: 0; }
   #right { right: 0; }
   #touch.narrow .strip { opacity: 0.45; }
+  /* Upright the picture has room below it: all the buttons go there, within
+     reach of the thumbs, the small keys above the D-pad and the big ones. */
+  #game.touch.upright:not(:fullscreen) { padding-bottom: 230px; }
+  #game.upright #touch .strip { justify-content: flex-end; gap: 12px; opacity: 1; }
   #touch .row { display: flex; gap: 4px; }
   #touch button { touch-action: none; margin: 0; padding: 0; border: 1px solid #666; border-radius: 8px;
                   background: #222; color: #ddd; font: 13px sans-serif; }
@@ -198,6 +202,7 @@
       game.style.setProperty('--strip', (strip < 100 ? 132 : strip) + 'px');
       touchControls.classList.toggle('narrow', strip < 100);
       touchControls.classList.toggle('upright', innerHeight > innerWidth);
+      game.classList.toggle('upright', innerHeight > innerWidth);
     }
   }
   if (touch) {
