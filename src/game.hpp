@@ -1,5 +1,6 @@
 #pragma once
 #include "game_names.hpp"
+#include "settings.hpp"
 
 namespace stone {
 // The game in readable form, on the memory the lifted code uses: game.cpp is
@@ -134,6 +135,8 @@ public:
     // CS:216b. Where the picture in the work buffer has colour 2, it gets
     // the pixel of the shown page.
     void show_through_buffer() const;
+    // Not original: a rectangle of the page being drawn in one colour.
+    void fill(unsigned x, unsigned y, unsigned width, unsigned height, uint8_t colour) const;
 
     // --- Text in the 8 by 16 font of the work buffer ---
     // CS:27f7. Text up to its NUL: LF goes back to the column the text
@@ -289,8 +292,10 @@ struct Game : GameNames {
     // CS:2509. The menu picture with LIGHT, if it is on, and A or B.
     void draw_menu() const;
     // CS:0010. A game from this level until all lives are lost, Esc, or
-    // the last level is completed.
-    void run_game(uint8_t first_level) const;
+    // the last level is completed. Not original: in enhanced mode each level
+    // started is recorded as reached, unless `counts` is false (a start by
+    // LVLnnn, ENHANCEMENTS.md E1).
+    void run_game(uint8_t first_level, bool counts = true) const;
     // CS:0ed7. No points, five lives.
     void new_session() const;
 
@@ -336,11 +341,27 @@ struct Game : GameNames {
     // CS:2dd0, 2dea. Text in the jukebox's own letters; CR starts a line.
     void write_jukebox(const uint8_t* text) const;
     void write_jukebox(uint8_t character) const;
-    // CS:2fb6. Options: F1 full background, F2 flat stone, F3 sound,
-    // F4 and F5 brightness, F10 leaves.
+    // CS:2fb6. Options, changed in both modes (ENHANCEMENTS.md, E0): F1
+    // enhanced mode, F2 full background, F3 flat stone, F4 sound, F10
+    // leaves. The original's F1-F3 were the three after F1; its brightness
+    // keys F4 and F5 are gone, brightness stays as the game starts.
     void options() const;
-    // CS:2f4f.
+    // CS:2f4f, the lines drawn by code over the picture's.
     void draw_options() const;
+    // Enhanced mode on or off, saved at once.
+    void set_enhanced(bool on) const;
+    // STONEAGE.ENH as it is saved (every default without one), and saved.
+    Settings load_settings() const;
+    void save_settings(const Settings& settings) const;
+
+    // --- Map selector (selector.cpp; ENHANCEMENTS.md, E1), enhanced mode only ---
+    // F2 in the menu: the 100 maps, 20 to a page; Enter on a reached one
+    // starts a game there, Tab or P opens the password screen, Esc leaves.
+    void map_selector() const;
+    // The CRC-32 of the level records, which tells level sets apart.
+    uint32_t level_set() const;
+    // Level level() + 1 started: saved if it is further than that.
+    void record_level() const;
     // CS:30f5. Text scrolling up over a picture, a pixel every three ticks,
     // until its end or a key. CS:30b7 before the game, with two names in an
     // order left to chance; CS:30a9 after the last level.
