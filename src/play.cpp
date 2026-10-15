@@ -13,6 +13,9 @@
 // --original turns it off for this run without changing the saved setting.
 // --keys gives a scripted run (--ticks) its keys: lines `tick scan`, the scan
 // byte in hex (80h added for a release) latched from that tick on.
+// In the browser the scores, settings and original.dat are kept in /save,
+// which web/saves.js keeps in IndexedDB; the page exports and imports them
+// as a zip (stone_export_saves, stone_import_saves).
 #define SDL_MAIN_HANDLED
 #include <SDL3/SDL_audio.h>
 #include <SDL3/SDL_error.h>
@@ -24,6 +27,7 @@
 #include <SDL3/SDL_timer.h>
 #include "assets.hpp"
 #include "package.hpp"
+#include "zip.hpp"
 #include "settings.hpp"
 #include "audio.hpp"
 #include "host_clock.hpp"
@@ -31,9 +35,12 @@
 #include "keyboard.hpp"
 #include "machine.hpp"
 #include <algorithm>
+#include <cctype>
+#include <cstdio>
 #include <ctime>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <stdexcept>
 #ifdef __EMSCRIPTEN__
@@ -83,6 +90,12 @@ void type_text(stone::Machine& machine, const char* utf8) {
                     machine.type(uint8_t(128 + k));
     }
 }
+#ifdef __EMSCRIPTEN__
+const std::string save_directory = "/save/";
+// What Export saves and Import saves carry: everything the player stores.
+const char* const save_files[] = {"STONEAGE.ENH", "STONEAGE.HI", "FREEMAPS.HI", "original.dat"};
+#endif
+
 // The original game's own graphics, levels and music, for those who have its
 // files: SA_V1_00.EXE and the eight CMF songs in a folder original_data
 // beside the player, or beside the folder the player is in. They are packed
@@ -185,11 +198,15 @@ Player::Player(int argc, char** argv) {
     }
     scripted = scripted_ticks >= 0;
     // Game files come from the asset packages; new scores and settings
-    // are stored beside the player.
+    // are stored beside the player, in the browser in /save.
     const char* base = SDL_GetBasePath();
+#ifdef __EMSCRIPTEN__
+    score_directory = save_directory;
+#else
     score_directory = base ? base : "";
-    free_package.reset(
-        new stone::Package(path.empty() ? score_directory + "stoneage.dat" : path));
+#endif
+    free_package.reset(new stone::Package(
+        path.empty() ? std::string(base ? base : "") + "stoneage.dat" : path));
     if (!free_package->packed())
         throw std::runtime_error("Asset package not found. It is built by stone_assets.");
     if (path.empty() && !free_set) {
@@ -250,6 +267,10 @@ Player::Player(int argc, char** argv) {
                 return;
         }
         stone::write_file(score_file(name), data);
+#ifdef __EMSCRIPTEN__
+        // Into IndexedDB at once, so it is kept even if the tab closes next.
+        EM_ASM({ Module.storeSaves(); });
+#endif
     };
     machine.enhanced = !original && stone::Settings(settings_file).enhanced();
     machine.display = stone::Settings(settings_file).display();
@@ -380,8 +401,73 @@ void step_frame(void* argument) {
             Module.gameEnded();
     });
 }
+
+// The answer of the last export or import: empty, or what went wrong.
+std::string saves_problem;
 #endif
 } // namespace
+
+#ifdef __EMSCRIPTEN__
+// Export saves: a zip of the files in /save, written to /tmp/saves.zip.
+extern "C" EMSCRIPTEN_KEEPALIVE const char* stone_export_saves() {
+    try {
+        std::map<std::string, stone::Bytes> files;
+        for (const char* name : save_files) {
+            stone::Bytes data;
+            if (read(save_directory + name, data))
+                files[name] = data;
+        }
+        if (files.empty())
+            throw std::runtime_error("There are no saves yet.");
+        stone::write_file("/tmp/saves.zip", stone::write_zip(files));
+        saves_problem.clear();
+    } catch (const std::exception& e) {
+        saves_problem = e.what();
+    }
+    return saves_problem.c_str();
+}
+
+// Import saves: the save files in /tmp/saves.zip replace those in /save.
+// Names are matched in any case, in a folder or not; other files are left
+// out, and saves the zip does not hold stay as they are.
+extern "C" EMSCRIPTEN_KEEPALIVE const char* stone_import_saves() {
+    try {
+        stone::Bytes zip;
+        if (!read("/tmp/saves.zip", zip))
+            throw std::runtime_error("The zip could not be read.");
+        std::map<std::string, stone::Bytes> saves;
+        for (auto& entry : stone::read_zip(zip)) {
+            std::string name = entry.first.substr(entry.first.find_last_of("/\\") + 1);
+            for (const char* save : save_files) {
+                std::string wanted = save;
+                if (std::equal(name.begin(), name.end(), wanted.begin(), wanted.end(),
+                               [](char a, char b) { return std::toupper(a) == std::toupper(b); }))
+                    saves[wanted] = std::move(entry.second);
+            }
+        }
+        if (saves.empty())
+            throw std::runtime_error("The zip holds no saves (STONEAGE.ENH, STONEAGE.HI, "
+                                     "FREEMAPS.HI or original.dat).");
+        const auto original = saves.find("original.dat");
+        if (original != saves.end()) { // it must open, or the game would not start
+            stone::write_file("/tmp/original.dat", original->second);
+            try {
+                stone::Package("/tmp/original.dat");
+            } catch (const std::exception&) {
+                std::remove("/tmp/original.dat");
+                throw std::runtime_error("The zip's original.dat is damaged.");
+            }
+            std::remove("/tmp/original.dat");
+        }
+        for (const auto& save : saves)
+            stone::write_file(save_directory + save.first, save.second);
+        saves_problem.clear();
+    } catch (const std::exception& e) {
+        saves_problem = e.what();
+    }
+    return saves_problem.c_str();
+}
+#endif
 
 int main(int argc, char** argv) {
     try {

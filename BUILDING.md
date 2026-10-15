@@ -98,6 +98,9 @@ replacing files; it is not encryption.
   assets, the package format and `stone_assets`.
 - `src/play.cpp`, `host_*.hpp`: the SDL host (window, keys, audio, score
   file). The rest of `src/` does not use SDL.
+- `src/zip.*`: reading and writing zip files, for the web page's saves.
+- `web/`: the web page around the browser build (`shell.html`) and its
+  saves in IndexedDB (`saves.js`); see `WEB_PLAN.md`.
 - `src/stone.*`: byte buffers, files, BMP output, CRC-32.
 
 `src/game_data.inc`, `game_names.hpp`, `keyboard.hpp`, `music_lift.inc` and
@@ -108,7 +111,7 @@ part of this repository; in a fork, edit them like any other source.
 
 `stone_tests` needs nothing of the original game and is built with every
 preset; run it with `ctest --test-dir build/cmake -C Release` (or the build tree
-of the preset used). It tests the saved settings (`tests/`).
+of the preset used). It tests the saved settings and the zip files (`tests/`).
 
 The comparison tests replay key scripts on the game and compare every 70 Hz
 tick with a run of the original executable under the same keys. They, their
