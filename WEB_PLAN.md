@@ -5,7 +5,7 @@ Actions builds it on every push to `main` and publishes it on GitHub Pages.
 The site plays with the free assets in `assets/`. A player who owns the
 original game can add a zip of its files on the page; the zip stays in their
 browser and never reaches the server. Each milestone below ends with the
-check that shows it is done; milestones 1 to 3 are done.
+check that shows it is done; milestones 1 to 5 are done.
 
 ## Decisions
 
@@ -183,6 +183,31 @@ ORIG.
 Firefox without the browser acting on it, and name entry in the high-score
 table accepts typed text.
 
+**Done.** The game stands still until the canvas has the keyboard: a
+button over it says "Click to play" (and "Play again" once the game has
+ended), and it comes back when the canvas loses focus, as the desktop
+player stands still without focus (`stone_focus` in `play.cpp`, which also
+releases a held key). The canvas is sized in device pixels, so a whole
+multiple stays sharp on a 1.25 or 1.5 screen; the window is made with
+`SDL_WINDOW_HIGH_PIXEL_DENSITY` and `SDL_WINDOW_OPENGL` (made without it,
+SDL recreates it for WebGL and drops the page's size). Fullscreen shows the
+canvas and its button on a black screen. SDL already stops F1–F12, Tab, the
+arrows and Backspace, and Space except as typed text; the shell's listener
+adds PgUp/PgDn, Home and End. The footer's source link comes from
+`STONE_SOURCE_URL` (the repository by default; the workflow gives the commit).
+
+Checked in Chromium with Playwright, at device pixel ratios 1, 1.25 and
+1.5: the canvas is 3× or 4× 320×200 in device pixels and follows the
+window; F1–F10, Tab, Space, the arrows, PgUp/PgDn, Home, End, Esc and
+Backspace neither reload, scroll nor move focus; fullscreen fills the
+screen at a whole multiple and returns the canvas's size after. With a
+score table any score reaches (imported with **Import saves**), the name
+typed after F3 and Esc, corrected with Backspace and ended with Enter is
+in the exported `FREEMAPS.HI`. Firefox could not be installed in the cloud
+session (its download is blocked there), so the keys in Firefox, and Esc
+in fullscreen with the Keyboard Lock API in a headed Chromium, are still to
+be checked by hand.
+
 ### 5. Build and publish with GitHub Actions
 
 `.github/workflows/web.yml`:
@@ -206,6 +231,13 @@ relative, so it works from that subfolder.
 
 **Done when:** a push to `main` updates the site, and a pull request shows
 the web build's check.
+
+**Done**, as written, with these details: the core's `stone_tests` run
+after it is built; emsdk is installed with `mymindstorm/setup-emsdk`,
+which caches it; Ninja comes from apt. The steps were run in the cloud
+session as the workflow runs them. The site goes up only once Pages'
+source is set to GitHub Actions in the repository's settings (above);
+until then the deploy job fails on `main`.
 
 ### 6. Checks
 

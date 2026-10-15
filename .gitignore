@@ -15,6 +15,7 @@
 !/web/
 !/tests/
 !/.claude/
+!/.github/
 !/assets/
 !/third_party/
 /third_party/*
