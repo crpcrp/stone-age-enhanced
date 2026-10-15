@@ -64,6 +64,38 @@ of a tile is its letter: `A`-`T` are 0-19, `a`-`t` are 20-39 (`CS:1bad`).
 | `q` (36) | The floor the game normally draws for `B` |
 | `r s` | Unused |
 
+The five free themes differ in construction as well as colour:
+
+| Theme | Walls and paths | Large decoration |
+|---|---|---|
+| Sandstone | Stacked masonry, low plain slabs, double chevrons | Craggy sandstone boulder |
+| Fossil limestone | Fossil pillars, worn flagstones, slender arrows | Ammonite fossil outcrop |
+| Ice and crystal | Jagged ice walls, smooth ice plates, straight arrows | Pointed crystal cluster |
+| Volcanic basalt | Stepped columns, dark flat slabs, broad wedge arrows | Uneven hexagonal columns |
+| Mossy ruins | Root-bound megaliths, quiet water-worn slabs, curved arrows | Root-covered mossy rock pile |
+
+Walkable floors have quiet centres and low edges; walls have raised,
+textured silhouettes. Cracks are reserved for collapsing floors. The red
+and green keys/gates retain their colour identities across themes.
+
+The artwork was generated with the built-in image generator, reduced to
+16x16 cells and mapped to the indexed palette without dithering. Slots 1-3
+extend the material ramps (including roots in theme 5); slots 4-9 and 15
+retain their shared colours. The limestone theme also has a neutral stone
+ramp and matching background tint. Large decorations were generated whole
+at 48x48 before splitting into nine cells. Exact EXIT lettering and reserved
+empty/outside cells are retained.
+
+Art brief: prehistoric puzzle-game relics with bold top-left lighting,
+quiet low roads, unmistakably raised walls, readable theme-specific arrows,
+and five different decorative silhouettes. Separate prompts specified
+sandstone, ammonite-bearing limestone, pointed glacial crystals, hexagonal
+basalt columns, and rounded mossy megaliths bound by roots.
+
+[Before (left) and after (right), at integer scale](docs/images/tiles-comparison.png).
+[All five themes rendered in-game, with their assembled decorations](docs/images/tiles-in-game.png).
+[Path, wall, arrow and decoration comparison](docs/images/tile-themes.png).
+
 ## Sprites: `sprites/000.bmp` to `184.bmp`
 
 The count is fixed; sizes may change (up to 255x255). 0 is transparent.

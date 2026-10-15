@@ -173,7 +173,7 @@ if(STONE_BUILD_PLAYER)
         set(tap_runs options selector)
         set(tap_ticks 760 900)
         set(tap_hashes dc22f9e3a3fad1d7b7f53f1c855bc0386e75ca616975825e904581d236738eb9
-                       dad8d1d2c845200a0bfbabd6ac06faed13f50038213720bcfdb828b6b9c8156c)
+                       f215fe77d852f0d76f551a282b5e027f346424a8052827185aa82f8eb638dc90)
         foreach(name ticks hash IN ZIP_LISTS tap_runs tap_ticks tap_hashes)
             add_test(NAME taps_${name} COMMAND ${CMAKE_COMMAND} -DPLAYER=$<TARGET_FILE:stone_play>
                 "-DPACKAGE=${STONE_OUTPUT}/stoneage.dat" "-DKEYS=${CMAKE_SOURCE_DIR}/tests/taps/${name}.keys"
