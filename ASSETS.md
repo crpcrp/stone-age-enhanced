@@ -1,31 +1,23 @@
-# Assets: what each file is and what the game does with it
+# Assets
 
-Everything the game shows and plays comes from the files in `assets/`, packed
-by the build into `build/stoneage.dat`. This is the map for anyone making new
-ones: which file, which size, which colours, which sprite number does what.
-Addresses such as `CS:0946` point into the original program (see
-`src/game_names.hpp` for the named variables).
+Everything the game shows and plays comes from the files in `assets/`,
+packed by the build into `build/stoneage.dat`. This file says what each one
+is, its size and colours, and what the game does with it. Addresses such as
+`CS:0946` point into the original program (named in `src/game_names.hpp`).
 
-## Two asset sets
+## Asset sets
 
-- **The free set**, in `assets/`: pictures, songs, a hundred levels with
-  their own passwords, and texts, all made for this project, with nothing
-  taken from the original game. It is what the repository ships and what the
-  build packs.
-- **The original game's own**, for those who have its files. Put
-  `SA_V1_00.EXE` and the eight `.CMF` songs in a folder `original_data/`
-  beside `stone_play.exe` or one folder above it (the repository root). The
-  player then packs them once into `original.dat` beside itself and uses that:
-  the original's pictures, songs, levels, passwords and texts.
-  `stone_play --free` plays the free set anyway; delete `original.dat` after
-  changing the original files.
+`assets/` is the free set, made for this project. With the original game's
+files present ([BUILDING.md](BUILDING.md#the-original-game)), Options F2
+chooses each of three parts from either set:
 
-With both sets there, Options F2 takes three parts from either one: **images**
-(every picture, `colours.txt`, `sine.bin` and the texts), **maps**
-(`levels.txt`, with the passwords) and **music** (the `.CMF` songs, and from
-`texts.txt` their `[jukebox]` titles and `[song_files]` names). A set's parts
-need not match the other set's: levels name a theme, palette and background
-by number, which every set has.
+- **images:** every picture, `colours.txt`, `sine.bin` and the texts;
+- **maps:** `levels.txt`, with the passwords;
+- **music:** the `.CMF` songs and, from `texts.txt`, their `[jukebox]`
+  titles and `[song_files]` names.
+
+Parts can be mixed: a level names its theme, palette and background by
+number, which every set has.
 
 ## Pictures in general
 
@@ -110,9 +102,9 @@ Sprites 181-184 use the title screen's colours.
 
 | File | Shown | The game draws on it |
 |---|---|---|
-| `screen_title` | Menu | Sprites 181-184 as above. The menu text is part of the picture; the free one names F2 "MAPS", the map selector of enhanced mode, and has a line `F8 STATS` (y=135), the statistics of enhanced mode. It has no lines for C (credits) and Esc (leave), which still work. With the original's picture, which has no such line, the game moves its seven lines up 8 pixels and makes `F8 - STATS` below them out of the picture's own letters. The lines F1-F8 start at (107,65), 7 pixels high and 10 apart: a tap on one sends its key, and in enhanced mode the cursor's marker stands 8 pixels left of it (ENHANCEMENTS.md, E6). Keep them there, or change `Game::menu_lines` (`lines.cpp`) with them |
+| `screen_title` | Menu | Sprites 181-184 as above. The menu text is part of the picture. The free one says `F2 MAPS` and has an `F8 STATS` line (y=135), and no lines for C (credits) and Esc, which still work. Its lines F1-F8 start at (107,65), 7 pixels high and 10 apart; taps and the cursor (ENHANCEMENTS.md, E6) expect them there, or change `Game::menu_lines` (`lines.cpp`) to match. On the original's picture the game moves its seven lines up 8 pixels and adds `F8 - STATS` |
 | `screen_password` | F2 (Tab in the map selector) | Six 16x16 letters from (135,83): `password/00` is the empty cell, `01..26` are A-Z; their background is slot 254 |
-| `screen_options` | F5 | The picture's lines F1-F5 (88-211, 62-147) are covered with their commonest colour and five lines written over them in `font.bmp`, 17 pixels apart from y=64, in the colour the picture's lines use most: F1 enhanced mode, F2 setup, F3 full background, F4 flat stone, F5 sound, each but F2 with `options/10` (ON) at x=217 or `11` (OFF) at x=214. The setup screen (F2) is the same picture with four lines, F1 images, F2 maps, F3 music, each ending in FREE or ORIG, and F4 VIEW ending in the display preset (SHARP, CRT or SMOOTH), and a fifth, NO ORIGINAL, without the original's files. The F10 line stays as drawn; taps and the cursor (E6) expect it at y=156 from x=92, as in the free picture |
+| `screen_options` | F5 | The picture's lines F1-F5 (88-211, 62-147) are covered with their commonest colour, and five lines are written over them in `font.bmp`, 17 pixels apart from y=64, in the colour the picture's lines use most: F1 enhanced mode, F2 setup, F3 full background, F4 flat stone, F5 sound; all but F2 end in `options/10` (ON, x=217) or `11` (OFF, x=214). Setup (F2) uses the same picture with F1 images, F2 maps, F3 music (each FREE or ORIG) and F4 VIEW (SHARP, CRT or SMOOTH), or NO ORIGINAL without the original's files. The F10 line stays as drawn; taps and the cursor expect it at y=156 from x=92, as in the free picture |
 | `screen_jukebox` | F4 | Song list from (72,61), eight lines of 8 pixels; the playlist at y=147; help below, from (32,168), a line of 8 pixels for each key. Taps and the cursor (E6) find the lines from the texts: the songs are F1-F8 in order, and a help line acts as the key its text starts with, `F9`, `DEL`, `F10` or `ESC` (`texts.txt`). Glyphs `jukebox/000..049` and `050..099` alternate by line: A-Z, then `. , " -` space space `! ? ( ' : ;`, 0-9 and two spare (`CS:2e1a`) |
 | `screen_scores` | F3, name entry, F8 | Text in `font.bmp` from (32,7), 14 pixels a line, in slot 15, which the game makes red; `birds/0..6` (black, slot 254) fly across. The statistics (F8 in enhanced mode) write up to twelve lines of 31 characters there, without birds |
 | `screen_credits` | C, victory | White text (slot 15) scrolls through x=80..239 |
@@ -165,18 +157,12 @@ A hundred levels of 20x11 tiles; the header of the file explains the format,
 which is also what `stone_assets export` writes. A header line ends with the
 level's password, six letters (`password WEFARO`), on every level.
 
-The free levels were made by a level generator (not part of this
-repository). Each is one puzzle over the whole board, as in the original: open
-space with walls to stop platforms against, the start ledge, the exit (often
-in a pocket behind a gate, its key far off or behind a gate of the other
-colour), cracked floor, sometimes teleports, and the platforms. Boards were
-changed a little at a time and kept when a search of every state showed a
-longer way through, more moves that cannot be undone, more gates and more
-returns to ledges left before. Difficulty climbs quickly through the first twenty
-levels and stays nearly level after fifty. The clock allows the fastest way
-and a little time to think per move. Hourglasses lie in four levels only: in
-two the clock cannot be beaten without one, in two taking it strands the
-player.
+The free levels were made by a level generator (not in this repository),
+which kept changes that a search of every state showed made the way
+through longer or harder. Each is one puzzle over
+the whole board. Difficulty climbs through the first twenty levels and
+levels off after fifty. The clock allows the fastest route plus a little
+thinking time per move. Hourglasses appear in four levels.
 
 Level rules (from `src/game.cpp`):
 
