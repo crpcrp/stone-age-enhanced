@@ -28,6 +28,10 @@ inline uint8_t& wrapped(Machine& m, uint8_t* table, uint16_t index) {
 bool decimal_add(uint8_t& digit, unsigned amount);
 bool decimal_subtract(uint8_t& digit, unsigned amount);
 
+// Ticks of 70 a second as seconds and tenths: 2891 is "41.3" (selector.cpp;
+// ENHANCEMENTS.md, E3 and E4).
+std::string tick_seconds(unsigned ticks);
+
 // The original's random numbers (CS:211e): one sequence for the whole session,
 // started from the seconds of the DOS clock.
 class Random {
@@ -289,14 +293,15 @@ struct Game : GameNames {
     // key), or for DOS (Esc).
     enum MenuChoice { menu_again, pictures, quit };
     MenuChoice menu() const;
-    // CS:2509. The menu picture with LIGHT, if it is on, and A or B.
+    // CS:2509. The menu picture with LIGHT, if it is on, and A or B. Not
+    // original: in enhanced mode the F8 line too (E4).
     void draw_menu() const;
     // CS:0010. A game from this level until all lives are lost, Esc, or
     // the last level is completed. Not original: in enhanced mode each level
     // started is recorded as reached and as the last started, unless `counts`
     // is false (a start by LVLnnn, ENHANCEMENTS.md E1 and E2); each level
-    // completed may set a best, unless `counts` is false or MAYDAY was
-    // typed (E3).
+    // completed may set a best, and each level played counts in the
+    // statistics, unless `counts` is false or MAYDAY was typed (E3, E4).
     void run_game(uint8_t first_level, bool counts = true) const;
     // CS:0ed7. No points, five lives.
     void new_session() const;
@@ -383,6 +388,15 @@ struct Game : GameNames {
     unsigned record_best() const;
     // The score as a number.
     unsigned score_value() const;
+
+    // --- Statistics (stats.cpp; ENHANCEMENTS.md, E4), enhanced mode only ---
+    // F8 in the menu: page 1 the totals, then the maps of the level set
+    // played, ten to a page, sorted by number or by attempts (Tab or S). The
+    // arrow keys and PgUp/PgDn turn the pages, Esc leaves.
+    void statistics() const;
+    // `F8 STATS` on the menu. The free picture has the line drawn in; on
+    // the original's it is written at the bottom of the screen.
+    void draw_stats_entry() const;
     // CS:30f5. Text scrolling up over a picture, a pixel every three ticks,
     // until its end or a key. CS:30b7 before the game, with two names in an
     // order left to chance; CS:30a9 after the last level.
@@ -453,6 +467,11 @@ struct Game : GameNames {
     Outcome play() const;
     // CS:002b. One tick of it.
     Outcome play_tick() const;
+    // Not original (stats.cpp; ENHANCEMENTS.md, E4). The level level() (0-99)
+    // has ended in `outcome`, in the first level of its game or a later one:
+    // added to its map's line and to the totals, with what m.tally counted,
+    // unless m.recording is off.
+    void record_stats(Outcome outcome, bool first) const;
     // CS:03b7-0642. What the keys do once the mover stands on a cell.
     void obey_keys(uint8_t column, uint8_t row) const;
     // CS:0e38. The player leaves through the exit in twelve frames of seven

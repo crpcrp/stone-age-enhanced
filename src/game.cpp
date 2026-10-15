@@ -438,11 +438,22 @@ bool Game::step_on(uint8_t tile, uint8_t column, uint8_t row) const {
     case 'O': // a key; the 256th would wrap the count and is left lying
         if (++keys_a() == 0)
             return false;
+        ++m.tally.keys; // not original (ENHANCEMENTS.md, E4), as below
         break;
-    case 'P': ++keys_b(); break;
-    case 'M': --keys_a(); break; // a gate takes its key
-    case 'N': --keys_b(); break;
+    case 'P':
+        ++keys_b();
+        ++m.tally.keys;
+        break;
+    case 'M': // a gate takes its key
+        --keys_a();
+        ++m.tally.gates;
+        break;
+    case 'N':
+        --keys_b();
+        ++m.tally.gates;
+        break;
     case 'J':
+        ++m.tally.hourglasses;
         clock.add_fifty_seconds();
         clock.draw();
         board.put(floor_tile(), column, row);
@@ -453,6 +464,7 @@ bool Game::step_on(uint8_t tile, uint8_t column, uint8_t row) const {
         player_sprite() = 0;
         selector_cell() = uint16_t(column | row << 8);
         --teleporting();
+        ++m.tally.teleports;
         return true;
     default: return false;
     }
@@ -512,6 +524,7 @@ void Game::walk(const Direction& way, uint8_t column, uint8_t row) const {
     }
     const Probe ahead = probe_beside(column, row, way);
     if (ahead.open) {
+        ++m.tally.steps; // not original (ENHANCEMENTS.md, E4)
         aim(way);
         return;
     }
@@ -527,6 +540,7 @@ bool Game::platform_goes(uint8_t tile, const Direction& way) {
 }
 
 void Game::launch_platform(uint8_t direction) const {
+    ++m.tally.platforms; // not original (ENHANCEMENTS.md, E4)
     platform_direction() = direction;
     --platform_moving();
     speed() = 2;

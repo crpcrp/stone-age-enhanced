@@ -61,12 +61,6 @@ private:
     Settings::Best bests[maps];
 };
 
-// Ticks of 70 a second as seconds and tenths: 2891 is "41.3".
-std::string seconds(unsigned ticks) {
-    const unsigned tenths = (ticks + 3) / 7;
-    return std::to_string(tenths / 10) + '.' + std::to_string(tenths % 10);
-}
-
 void MapSelector::run() {
     screen.set_layout(false);
     gather();
@@ -216,7 +210,7 @@ void MapSelector::draw(unsigned cursor, int shift) {
     // The map and its bests (E3): MAP 12  41.3s  1250.
     std::string header = "MAP " + std::to_string(cursor + 1);
     if (bests[cursor].cleared())
-        header += "  " + seconds(bests[cursor].ticks) + "s  " +
+        header += "  " + tick_seconds(bests[cursor].ticks) + "s  " +
                   std::to_string(bests[cursor].points);
     write(8, 2, header);
     g.text_colour() = grey_slots + 7;
@@ -341,6 +335,11 @@ void MapSelector::shake(unsigned map) {
 }
 } // namespace
 
+std::string tick_seconds(unsigned ticks) {
+    const unsigned tenths = (ticks + 3) / 7;
+    return std::to_string(tenths / 10) + '.' + std::to_string(tenths % 10);
+}
+
 void Game::map_selector() const { MapSelector(*this).run(); }
 
 uint32_t Game::level_set() const {
@@ -368,7 +367,7 @@ unsigned Game::score_value() const {
 }
 
 unsigned Game::record_best() const {
-    if (!m.timing)
+    if (!m.recording)
         return 0;
     // The score has six digits and goes round past 999,999.
     const unsigned points = (score_value() + 1000000 - m.level_score) % 1000000;
