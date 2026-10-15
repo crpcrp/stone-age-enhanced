@@ -35,8 +35,7 @@ repository.
 
 There are no prebuilt downloads: build the game from source. You need CMake
 3.25+ and a C++14 compiler; on Windows, Visual Studio 2022 or its Build Tools
-with the C++ workload has both. The first build downloads SDL3 and DOSBox's
-OPL emulator.
+with the C++ workload has both. The first build downloads SDL3.
 
 ```powershell
 cmake --preset default

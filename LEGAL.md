@@ -31,7 +31,7 @@ held the original's exported content is not published.
 | Component | License | Notice |
 |---|---|---|
 | SDL3 | zlib | [SDL3.txt](third_party/licenses/SDL3.txt) |
-| DOSBox 0.74-3 DBOPL | GNU GPL version 2 or later | [DOSBox-DBOPL.txt](third_party/licenses/DOSBox-DBOPL.txt) |
+| ymfm (YM3812 emulator) | BSD 3-Clause | [ymfm.txt](third_party/licenses/ymfm.txt) |
 
-The player links DBOPL. Anyone who distributes the player must meet the GPL's
-terms, including providing the corresponding source.
+Both licences allow the player to be passed on with their notices, which the
+build copies beside it and the web page publishes with it.

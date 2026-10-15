@@ -20,6 +20,7 @@
 !/third_party/
 /third_party/*
 !/third_party/licenses/
+!/third_party/ymfm/
 
 # Never version generated outputs, caches or executable game data.
 **/__pycache__/

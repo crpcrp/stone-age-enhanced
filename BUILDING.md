@@ -6,12 +6,12 @@
   (or its Build Tools) with the C++ workload provides both, and opens the
   folder directly as a CMake project.
 - An internet connection for the first build. CMake downloads SDL3 3.4.16
-  and the DOSBox 0.74-3 source into the build tree and checks them against
-  pinned SHA-256 hashes; nothing else needs installing. On Windows it uses
+  into the build tree and checks it against pinned SHA-256 hashes; nothing
+  else needs installing. On Windows it uses
   SDL's prebuilt development package; elsewhere it uses an installed SDL3
   when there is one and otherwise builds SDL from source. To use local
-  copies, set `FETCHCONTENT_SOURCE_DIR_SDL3_MINGW` (Windows),
-  `FETCHCONTENT_SOURCE_DIR_SDL3` or `FETCHCONTENT_SOURCE_DIR_DOSBOX`.
+  copy, set `FETCHCONTENT_SOURCE_DIR_SDL3_MINGW` (Windows) or
+  `FETCHCONTENT_SOURCE_DIR_SDL3`.
 
 ## Build
 
@@ -92,8 +92,8 @@ replacing files; it is not encryption.
   menu and their screens; pages, sprites, colours and text).
 - `src/music.*`, `music_lift.inc`, `music_tables.inc`: the song format and
   the music driver; its output is OPL register writes.
-- `src/audio.*`, `src/dosbox_compat/`: the music synthesized with DOSBox's
-  DBOPL OPL emulator (fetched at build time, unmodified).
+- `src/audio.*`: the music synthesized with ymfm's YM3812 emulator
+  (`third_party/ymfm/`, unmodified), one register write a sample.
 - `src/assets.*`, `content.*`, `package.*`, `assets_main.cpp`: the editable
   assets, the package format and `stone_assets`.
 - `src/play.cpp`, `host_*.hpp`: the SDL host (window, keys, audio, score
@@ -135,6 +135,4 @@ Non-Windows builds have not been verified.
 
 This project publishes source only, never a built player. If you build the
 player and pass it on, keep `LICENSE`, `LEGAL.md` and the `licenses` folder
-(copied into `build/`) with it. The player links DOSBox's GPL-licensed OPL
-emulator, so passing it on means meeting the GPL's terms, including
-providing the corresponding source; see [LEGAL.md](LEGAL.md).
+(copied into `build/`) with it. See [LEGAL.md](LEGAL.md).

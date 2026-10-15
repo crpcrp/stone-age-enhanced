@@ -10,8 +10,8 @@ check that shows it is done; milestones 1 to 5 are done.
 ## Decisions
 
 - **Toolchain:** Emscripten. It compiles C++ to WebAssembly, and SDL3 and
-  DOSBox's DBOPL build with it unchanged. The emsdk version is pinned in the
-  workflow, as SDL3 and DOSBox are pinned in `CMakeLists.txt`.
+  ymfm build with it unchanged. The emsdk version is pinned in the
+  workflow, as SDL3 is pinned in `CMakeLists.txt`.
 - **No threads in the web build.** `Machine` runs readable code on a thread
   of its own (`machine.cpp`, `Machine::Turns`). On the web the same
   hand-off uses Emscripten fibers instead, so the build needs no
@@ -177,7 +177,7 @@ ORIG.
   Keyboard Lock API (Chromium), the fullscreen button locks Esc for the game.
   Elsewhere the page says that Esc leaves fullscreen first.
 - A short key list under the canvas (from `README.md`, "Run"), the
-  buttons from milestones 2 and 3, and the footer described under GPL below.
+  buttons from milestones 2 and 3, and the footer described under Licences below.
 
 **Done when:** every key in `README.md`'s list works in Chromium and
 Firefox without the browser acting on it, and name entry in the high-score
@@ -264,13 +264,13 @@ until then the deploy job fails on `main`.
 - This file is deleted once the milestones are done; what remains true
   moves into those three.
 
-## GPL
+## Licences
 
-The web version links DBOPL, so publishing it is distributing the player
-under the GPL. The page's footer names the licences, links to `LICENSE`,
-`LEGAL.md` and the notices published with it, and links to the source at
-the exact commit it was built from (`github.sha` in the workflow). That
-makes the corresponding source available as the GPL requires.
+The web version links SDL3 (zlib) and ymfm (BSD 3-Clause); it linked DOSBox's
+GPL-licensed DBOPL until the player's own licence, which grants none, was
+found not to allow that. The page's footer names the licences, links to
+`LICENSE`, `LEGAL.md` and the notices published with it, and links to the
+source at the exact commit it was built from (`github.sha` in the workflow).
 
 ## Limits of the web version
 

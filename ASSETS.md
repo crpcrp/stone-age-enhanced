@@ -151,6 +151,11 @@ own ("A.H."), not Creative's CMF.
   output level, tremolo, vibrato, envelope scaling, and FM (1) or additive (0).
 - Volume 0-127. Effect 32 is none; 30 and 34 detune down and up.
 - In rhythm mode channels 6-10 are bass drum, snare, tom, cymbal, hi-hat.
+- An attack rate of 15 can freeze a note part-way up, as on the chip: the
+  attack stops when its rate, which also grows with the pitch, reaches the
+  top while the note is rising. The driver changes the pitch of the snare
+  and hi-hat channel right after starting the snare, so the free songs give
+  the snare 14.
 
 The song titles shown in the jukebox are in `texts.txt`.
 
