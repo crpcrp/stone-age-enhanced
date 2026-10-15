@@ -121,7 +121,8 @@ In Claude Code cloud sessions, `.claude/hooks/session-start.sh` builds the
 player without a display (SDL for the console only, in
 `build/cmake-headless`) and sets SDL's off-screen video and dummy audio
 drivers, so scripted runs (`--keys`, `--ticks`, `--screenshot`) and
-`stone_tests` work there.
+`stone_tests` work there. It builds in the background while the session
+starts; the build is done when `build/cmake-headless/ready` exists.
 
 ## Limits
 
