@@ -42,7 +42,7 @@ bool Settings::light() const {
 void Settings::set_light(bool on) { set("light", on ? "1" : "0"); }
 
 namespace {
-const char* const part_keys[Settings::parts] = {"images", "maps", "music"};
+const char* const part_keys[Settings::parts] = {"images", "music"};
 } // namespace
 
 bool Settings::original(Part part) const {
@@ -53,6 +53,18 @@ bool Settings::original(Part part) const {
 void Settings::set_original(Part part, bool on) {
     set(part_keys[part], on ? "original" : "free");
 }
+
+const char* const Settings::free_maps = "free";
+const char* const Settings::original_maps = "original";
+
+std::string Settings::pack() const {
+    std::string value;
+    if (find("pack", value) && !value.empty())
+        return value;
+    return find("maps", value) && value == "free" ? free_maps : original_maps;
+}
+
+void Settings::set_pack(const std::string& name) { set("pack", name); }
 
 namespace {
 const char* const display_names[Settings::displays] = {"sharp", "crt", "smooth"};

@@ -1,6 +1,7 @@
 // The map selector (ENHANCEMENTS.md, E1 to E3). Not original: enhanced mode
-// only, in place of the password screen on F2 in the menu. All 100 maps, 20
-// to a page, as miniatures of their boards; the ones never reached are a grey
+// only, in place of the password screen on F2 in the menu. All maps of the
+// level set (100, or fewer in a pack, E7), 20 to a page, as miniatures of
+// their boards; the ones never reached are a grey
 // "unknown" map, the cleared ones have a mark, and the header shows the best
 // time and points of the map under the cursor. Progress is kept in
 // STONEAGE.ENH, one line per level set and one per cleared map.
@@ -13,10 +14,12 @@
 namespace stone {
 namespace {
 // Scan codes.
-const uint8_t esc = 0x01, tab = 0x0f, key_p = 0x19, enter = 0x1c, space = 0x39, home = 0x47,
+const uint8_t esc = 0x01, tab = 0x0f, key_p = 0x19, enter = 0x1c, key_l = 0x26, space = 0x39,
+              home = 0x47,
               arrow_up = 0x48, page_up = 0x49, arrow_left = 0x4b, arrow_right = 0x4d,
               end_key = 0x4f, arrow_down = 0x50, page_down = 0x51;
-const unsigned maps = 100, per_page = 20, per_row = 5, pages = maps / per_page;
+// Records in the level resource: a pack of fewer is padded (E7).
+const unsigned records = 100, per_page = 20, per_row = 5;
 // A thumbnail is the 20x11 board at three pixels a cell.
 const unsigned thumb_width = 3 * Board::columns, thumb_height = 3 * Board::rows;
 // The selector's own palette (the menu screens use 0-63 only).
@@ -28,19 +31,28 @@ const unsigned samples[3] = {2, 7, 12};
 unsigned thumb_x(unsigned map) { return 8 + 62 * (map % per_row); }
 unsigned thumb_y(unsigned map) { return 22 + 44 * (map % per_page / per_row); }
 
+// L SETS in the header (E7), right of the best and left of the page marks.
+const unsigned sets_x = 212;
+
 // Where a tap acts (ENHANCEMENTS.md, E6): each miniature of the page of
-// `map` with its number, by its place on the page.
-std::vector<Machine::Line> page_lines(unsigned map) {
+// `map` with its number, by its place on the page, of the `count` maps;
+// after them L SETS, which sends L.
+std::vector<Machine::Line> page_lines(unsigned map, unsigned count) {
     std::vector<Machine::Line> lines;
-    for (unsigned n = map / per_page * per_page; n < map / per_page * per_page + per_page; ++n)
+    const unsigned first = map / per_page * per_page;
+    for (unsigned n = first; n < std::min(first + per_page, count); ++n)
         lines.push_back({thumb_x(n), thumb_y(n), thumb_width, thumb_height + 8, 0});
+    lines.push_back({sets_x, 2, 48, 14, key_l});
     return lines;
 }
 
 class MapSelector {
 public:
-    explicit MapSelector(const Game& game) : g(game), screen(game.screen) {}
-    void run();
+    explicit MapSelector(const Game& game)
+        : g(game), screen(game.screen), maps(std::min(game.m.levels, records)),
+          pages((maps + per_page - 1) / per_page) {}
+    // True when it is to open again: another level set was chosen.
+    bool run();
 
 private:
     void gather();
@@ -61,25 +73,26 @@ private:
 
     const Game& g;
     const Screen& screen;
+    const unsigned maps, pages; // in the level set
     std::vector<uint8_t> boards; // 220 tiles a map
-    uint8_t themes[maps] = {};
+    uint8_t themes[records] = {};
     uint8_t tile_pixels[5][40][9] = {}; // [theme][sprite][column * 3 + row]
     std::array<uint8_t, 768> palette{};
     unsigned furthest = 1; // 1-100
     unsigned last = 0;     // 1-100, 0 for none
-    Settings::Best bests[maps];
+    Settings::Best bests[records];
 };
 
-void MapSelector::run() {
+bool MapSelector::run() {
     screen.set_layout(false);
     gather();
     build_palette();
     // On the map last started (E2), or the furthest when that is unknown.
-    unsigned cursor = last && reached(last - 1) ? last - 1 : furthest - 1;
+    unsigned cursor = std::min(last && reached(last - 1) ? last - 1 : furthest - 1, maps - 1);
     draw(cursor);
     screen.flip();
     // A tap on a miniature moves the cursor there; on the cursor it plays.
-    LineCursor taps(g, Machine::selector, page_lines(cursor));
+    LineCursor taps(g, Machine::selector, page_lines(cursor, maps));
     fade(true);
     g.read_scan();
     for (unsigned ticks = 0;;) {
@@ -119,20 +132,24 @@ void MapSelector::run() {
             taps.leave();
             fade(false);
             g.run_game(uint8_t(cursor)); // as a password start
-            return;
+            return false;
         case tab:
         case key_p:
             taps.leave();
             fade(false);
             g.enter_password();
-            return;
-        case esc: fade(false); return;
+            return false;
+        case key_l: // E7
+            taps.leave();
+            fade(false);
+            return g.choose_pack();
+        case esc: fade(false); return false;
         default: continue;
         }
         to = std::min(std::max(to, 0), int(maps) - 1);
         if (unsigned(to) / per_page != cursor / per_page) {
             slide(cursor, unsigned(to));
-            taps.replace(page_lines(unsigned(to)));
+            taps.replace(page_lines(unsigned(to), maps));
         }
         cursor = unsigned(to);
         draw(cursor);
@@ -217,7 +234,8 @@ void MapSelector::draw(unsigned cursor, int shift) {
     const unsigned first = cursor / per_page * per_page;
     uint8_t* const pixels = screen.work_buffer();
     std::fill_n(pixels, 320 * 200, uint8_t(0));
-    for (unsigned map = first; map < first + per_page; ++map)
+    const unsigned last_shown = std::min(first + per_page, maps);
+    for (unsigned map = first; map < last_shown; ++map)
         if (reached(map)) {
             draw_thumbnail(pixels, map);
             if (bests[map].cleared())
@@ -235,8 +253,10 @@ void MapSelector::draw(unsigned cursor, int shift) {
         header += "  " + tick_seconds(bests[cursor].ticks) + "s  " +
                   std::to_string(bests[cursor].points);
     write(8, 2, header);
+    g.text_colour() = grey_slots + 6; // E7: the list of level sets
+    write(sets_x, 2, "L SETS");
     g.text_colour() = grey_slots + 7;
-    for (unsigned map = first; map < first + per_page; ++map)
+    for (unsigned map = first; map < last_shown; ++map)
         if (!reached(map))
             write(thumb_x(map) + 26, thumb_y(map) + 9, "?");
     g.text_colour() = colour;
@@ -250,7 +270,7 @@ void MapSelector::draw(unsigned cursor, int shift) {
         }
     }
     // The number under each thumbnail, in the digits of the status bar.
-    for (unsigned map = first; map < first + per_page; ++map) {
+    for (unsigned map = first; map < last_shown; ++map) {
         const std::string digits = std::to_string(map + 1);
         const unsigned x = thumb_x(map) + thumb_width / 2 - 4 * unsigned(digits.size());
         for (unsigned n = 0; n < digits.size(); ++n)
@@ -362,11 +382,14 @@ std::string tick_seconds(unsigned ticks) {
     return std::to_string(tenths / 10) + '.' + std::to_string(tenths % 10);
 }
 
-void Game::map_selector() const { MapSelector(*this).run(); }
+void Game::map_selector() const {
+    while (MapSelector(*this).run()) {
+    }
+}
 
 uint32_t Game::level_set() const {
     unpack(levels_resource(), work_buffer());
-    return crc32(far(work_buffer()), maps * level_record_size());
+    return crc32(far(work_buffer()), records * level_record_size());
 }
 
 void Game::record_level() const {

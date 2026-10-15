@@ -8,6 +8,7 @@
 //   A (south)           Enter
 //   X (west)            Space
 //   B (east)            Esc
+//   Y (north)           L (the level sets, in the map selector)
 //   Start               P (pause)
 //   Back                Q (retry), once it has been held half a second
 //   LB, RB              PgUp, PgDn

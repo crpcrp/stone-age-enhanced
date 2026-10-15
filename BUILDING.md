@@ -68,7 +68,12 @@ Files written beside the player:
 - `STONEAGE.HI`: high scores of the original's levels, in the original's
   format.
 - `FREEMAPS.HI`: high scores of the free levels, same format.
+- `scores/<crc>.HI`: high scores of each level pack, same format.
 - `original.dat`: the original game's files, packed (below).
+
+Level packs go in a folder `levels/` beside the player: text files in the
+format of `assets/levels.txt` with 1 to 100 levels (ENHANCEMENTS.md, E7).
+L in the map selector lists them.
 
 Audio-device errors are reported on the console; the game goes on silently.
 
@@ -80,8 +85,9 @@ own copy: `SA_V1_00.EXE` version 1.00 (452,788 bytes, SHA-256
 eight `.CMF` songs. Put them in a folder `original_data/` beside the player
 or one folder above it (from `build/`, that is the repository root). The
 player packs them once into `original.dat` beside itself; delete that file
-after changing the original files. Options F2 (setup) then chooses images,
-maps and music from either set.
+after changing the original files. Options F2 (setup) then chooses images
+and music from either set, and the map selector's list of level sets (L)
+offers the original's maps.
 
 Do not commit or distribute these files or `original.dat`.
 
@@ -112,7 +118,9 @@ Differences from the desktop:
   waits while the canvas does not have focus.
 - **Saves** live in `/save`, kept in IndexedDB by `web/saves.js`.
   **Export saves** and **Import saves** zip `STONEAGE.ENH`, `STONEAGE.HI`,
-  `FREEMAPS.HI` and `original.dat` (`src/zip.cpp`).
+  `FREEMAPS.HI`, `original.dat` and the folders `levels/` and `scores/`
+  (`src/zip.cpp`); importing a zip with a `levels/` folder is how level
+  packs get into the browser.
 - **The original game.** **Add the original game (zip)** takes a zip of
   `SA_V1_00.EXE` and its songs. `web/original.js` unpacks it in the browser,
   the executable's size and hash are checked, and it is packed into
@@ -149,8 +157,8 @@ scramble. The scramble deters casual editing; it is not encryption.
 
 ## Tests
 
-- `stone_tests` (`tests/`) checks `STONEAGE.ENH` reading and writing and the
-  zip code. It needs nothing of the original and is built with every native
+- `stone_tests` (`tests/`) checks `STONEAGE.ENH` reading and writing, the
+  zip code and reading and writing level packs. It needs nothing of the original and is built with every native
   preset.
 - With the player, CTest also runs two scripted taps of the free set
   (`tests/taps/`) and compares their screenshots by SHA-256
@@ -180,7 +188,8 @@ and `dummy` audio drivers, so scripted runs and `stone_tests` work there.
 | `music.*`, `music_lift.inc`, `music_tables.inc` | The song format and the music driver, which outputs OPL register writes. |
 | `audio.*` | Synthesis with ymfm's YM3812 emulator (`third_party/ymfm/`, one change). |
 | `assets.*`, `content.*`, `package.*`, `assets_main.cpp` | The editable assets, the package format and `stone_assets`. |
-| `selector.cpp`, `stats.cpp`, `lines.cpp`, `settings.*` | Enhanced mode: the map selector, statistics, the line cursor and `STONEAGE.ENH`. |
+| `levels.*` | Level sets as text: `levels.txt` and level packs. |
+| `selector.cpp`, `packs.cpp`, `stats.cpp`, `lines.cpp`, `settings.*` | Enhanced mode: the map selector, its list of level sets, statistics, the line cursor and `STONEAGE.ENH`. |
 | `play.cpp`, `host_*.hpp`, `gamepad.*` | The SDL host: window, keys, gamepad, touch, audio, files. Nothing else in `src/` uses SDL. |
 | `zip.*` | Zip reading and writing, for the web page's saves. |
 | `stone.*` | Byte buffers, files, BMP output, CRC-32, SHA-256. |

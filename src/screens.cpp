@@ -307,7 +307,7 @@ void Game::run_game(uint8_t first_level, bool counts) const {
             walk_out();
             screen.wipe(false);
             record_stats(outcome, first); // not original (E4)
-            if (++level() == 100) {
+            if (++level() == m.levels) { // not original: a pack may end sooner (E7)
                 award_bonus();
                 record_best();
                 victory_credits();
@@ -628,10 +628,11 @@ void Game::enter_password() const {
         else if (cheat_mode() && word.substr(0, 3) == "LVL" && digit(3) <= 9 && digit(4) <= 9 &&
                  digit(5) <= 9)
             found = int(digit(3) * 100 + digit(4) * 10 + digit(5)) - 1;
-        cheat_level = found >= 0 && found < 100;
+        // Not original (E7): only the levels a pack has, 100 in the built-in sets.
+        cheat_level = found >= 0 && found < int(m.levels);
         if (!cheat_level) {
             found = -1;
-            for (int level = 0; level < 100 && found < 0; ++level) {
+            for (int level = 0; level < int(m.levels) && found < 0; ++level) {
                 level_password(uint8_t(level));
                 if (std::equal(typed, typed + 6, text()))
                     found = level;
@@ -679,8 +680,19 @@ void Game::level_password(uint8_t level) const {
 
 void Game::show_scores() const {
     prepare_score_screen();
-    screen.move_to(32, 7);
+    // Not original (E7): a pack's table is named on the bottom line, the
+    // table moved up to make room.
+    const bool named = m.enhanced && !m.pack_name.empty();
+    screen.move_to(32, named ? 0 : 7);
     screen.write(scores_heading()); // the table follows the heading and ends the text
+    if (named) {
+        std::string name = m.pack_name.substr(0, 38);
+        for (char& c : name)
+            c = char(std::toupper(static_cast<unsigned char>(c)));
+        screen.move_to(160 - 4 * unsigned(name.size()), 184);
+        for (const char character : name)
+            screen.write(uint8_t(character));
+    }
     screen.save_page();
     screen.flip();
     screen.restore_page();
@@ -1053,8 +1065,9 @@ void Game::draw_option_lines(const char* const* labels, const uint8_t* sprites,
 
 // Not original. Each line ends in FREE or ORIG, within the 15 characters
 // the covered lines hold. Without the original's files everything is free
-// and stays so, and a line says why. F4 cycles the display preset (E5),
-// which the picture has no sixth line for in Options itself.
+// and stays so, and a line says why. F3 cycles the display preset (E5),
+// which the picture has no sixth line for in Options itself. The maps are
+// chosen in the map selector's list of level sets (E7), not here.
 void Game::asset_options() const {
     const Settings saved = load_settings();
     bool original[Settings::parts];
@@ -1063,7 +1076,7 @@ void Game::asset_options() const {
     show_options_screen();
     LineCursor cursor(*this, Machine::setup, option_lines(Settings::parts + 1)); // not original (E6)
     const auto draw = [&]() {
-        const char* const names[] = {"F1. IMAGES ", "F2. MAPS   ", "F3. MUSIC  "};
+        const char* const names[] = {"F1. IMAGES ", "F2. MUSIC  "};
         std::string lines[Settings::parts + 1];
         const char* labels[Settings::parts + 2];
         const uint8_t sprites[Settings::parts + 2] = {};
@@ -1075,7 +1088,7 @@ void Game::asset_options() const {
         std::string name = Settings::display_name(Settings::Display(m.display));
         for (char& c : name)
             c = char(std::toupper(static_cast<unsigned char>(c)));
-        lines[Settings::parts] = "F4. VIEW" + std::string(7 - name.size(), ' ') + name;
+        lines[Settings::parts] = "F3. VIEW" + std::string(7 - name.size(), ' ') + name;
         labels[Settings::parts] = lines[Settings::parts].c_str();
         labels[Settings::parts + 1] = "NO ORIGINAL";
         draw_option_lines(labels, sprites, Settings::parts + (m.original_assets ? 1 : 2), &cursor);
@@ -1089,7 +1102,7 @@ void Game::asset_options() const {
         if (key >= f1 && key < f1 + Settings::parts && m.original_assets) {
             original[key - f1] = !original[key - f1];
             draw();
-        } else if (key == f4) { // shown at once: the host reads m.display every frame
+        } else if (key == f1 + Settings::parts) { // shown at once: the host reads m.display every frame
             m.display = (m.display + 1) % Settings::displays;
             draw();
         }
@@ -1112,8 +1125,8 @@ void Game::asset_options() const {
     save_settings(settings);
     if (m.change_assets)
         m.change_assets(m);
-    // The new program bytes hold the built-in score table; the maps chosen
-    // may keep their scores in another file.
+    // The new program bytes hold the built-in score table: the table of
+    // the maps played again.
     load_scores();
     if (original[Settings::music] != saved.original(Settings::music)) {
         song_ticks() = 0; // the song of the playlist, from the songs now chosen
