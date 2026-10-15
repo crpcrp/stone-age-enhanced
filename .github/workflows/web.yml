@@ -54,6 +54,7 @@ jobs:
         run: |
           mkdir site
           cp build/web/index.html build/web/index.js build/web/index.wasm build/web/index.data site/
+          cp build/web/manifest.webmanifest build/web/icon-192.png build/web/icon-512.png site/
           cp LICENSE LEGAL.md site/
           cp -r third_party/licenses site/licenses
           ls -lR site

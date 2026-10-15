@@ -88,7 +88,7 @@ public:
         else {
             int width = 0, height = 0;
             check(SDL_GetCurrentRenderOutputSize(renderer, &width, &height));
-            const SDL_FRect area = place(Settings::Display(mode), width, height);
+            area = place(Settings::Display(mode), width, height);
             if (mode == Settings::sharp)
                 check(SDL_RenderTexture(renderer, picture, nullptr, &area));
             else if (mode == Settings::smooth) {
@@ -98,6 +98,20 @@ public:
                 draw_crt(area);
         }
         SDL_RenderPresent(renderer);
+    }
+
+    // A point of the window, in its own coordinates, as a pixel of the
+    // game's picture (ENHANCEMENTS.md, E6). False outside the picture.
+    bool to_game(float window_x, float window_y, float& x, float& y) const {
+        if (!SDL_RenderCoordinatesFromWindow(renderer, window_x, window_y, &x, &y))
+            return false;
+        if (configured >= 0) { // placed by present(), in the output's pixels
+            if (area.w <= 0 || area.h <= 0)
+                return false;
+            x = (x - area.x) * 320 / area.w;
+            y = (y - area.y) * 200 / area.h;
+        }
+        return x >= 0 && y >= 0 && x < 320 && y < 200;
     }
 
 private:
@@ -195,6 +209,7 @@ private:
     SDL_Texture* enlarged = nullptr; // smooth
     SDL_Texture* scanlines = nullptr; // crt
     int configured = -2, scanline_rows = 0;
+    SDL_FRect area{0, 0, 0, 0}; // where present() last put the picture in enhanced mode
     bool enlarged_current = false;
     std::vector<uint32_t> pixels, doubled, quadrupled;
 };

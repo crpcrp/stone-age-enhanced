@@ -28,6 +28,15 @@ const unsigned samples[3] = {2, 7, 12};
 unsigned thumb_x(unsigned map) { return 8 + 62 * (map % per_row); }
 unsigned thumb_y(unsigned map) { return 22 + 44 * (map % per_page / per_row); }
 
+// Where a tap acts (ENHANCEMENTS.md, E6): each miniature of the page of
+// `map` with its number, by its place on the page.
+std::vector<Machine::Line> page_lines(unsigned map) {
+    std::vector<Machine::Line> lines;
+    for (unsigned n = map / per_page * per_page; n < map / per_page * per_page + per_page; ++n)
+        lines.push_back({thumb_x(n), thumb_y(n), thumb_width, thumb_height + 8, 0});
+    return lines;
+}
+
 class MapSelector {
 public:
     explicit MapSelector(const Game& game) : g(game), screen(game.screen) {}
@@ -69,6 +78,8 @@ void MapSelector::run() {
     unsigned cursor = last && reached(last - 1) ? last - 1 : furthest - 1;
     draw(cursor);
     screen.flip();
+    // A tap on a miniature moves the cursor there; on the cursor it plays.
+    LineCursor taps(g, Machine::selector, page_lines(cursor));
     fade(true);
     g.read_scan();
     for (unsigned ticks = 0;;) {
@@ -79,11 +90,18 @@ void MapSelector::run() {
             std::fill_n(&palette[3 * highlight_slot], 3, level);
             screen.set_colours(palette.data(), highlight_slot, highlight_slot);
         }
-        const uint8_t key = g.read_scan();
-        if (!g.scan_change() || key >= 0x80)
-            continue;
+        uint8_t key = g.read_scan();
         int to = int(cursor);
+        const int tapped = g.m.tapped;
+        g.m.tapped = -1;
+        if (tapped >= 0) { // the key is the tap's: Enter on the cursor, or none
+            const unsigned map = cursor / per_page * per_page + unsigned(tapped);
+            key = map == cursor ? enter : 0;
+            to = int(map);
+        } else if (!g.scan_change() || key >= 0x80)
+            continue;
         switch (key) {
+        case 0: break; // a tap on another map
         case arrow_left: to -= 1; break;
         case arrow_right: to += 1; break;
         case arrow_up: to -= per_row; break;
@@ -98,11 +116,13 @@ void MapSelector::run() {
                 shake(cursor);
                 continue;
             }
+            taps.leave();
             fade(false);
             g.run_game(uint8_t(cursor)); // as a password start
             return;
         case tab:
         case key_p:
+            taps.leave();
             fade(false);
             g.enter_password();
             return;
@@ -110,8 +130,10 @@ void MapSelector::run() {
         default: continue;
         }
         to = std::min(std::max(to, 0), int(maps) - 1);
-        if (unsigned(to) / per_page != cursor / per_page)
+        if (unsigned(to) / per_page != cursor / per_page) {
             slide(cursor, unsigned(to));
+            taps.replace(page_lines(unsigned(to)));
+        }
         cursor = unsigned(to);
         draw(cursor);
         screen.flip();

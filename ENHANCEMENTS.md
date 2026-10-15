@@ -3,8 +3,9 @@
 What the enhanced game adds to the original, and the plan for what comes
 next. The code refers to the entries here by number (`ENHANCEMENTS.md, E1`).
 
-- **E0 to E5** are done (E5 without fullscreen, for now).
-- **E6 to E9** are planned. Their order below is the order of work: each
+- **E0 to E6** are done (E5 without fullscreen, for now; E6 still to be
+  tried on real phones and gamepads).
+- **E7 to E9** are planned. Their order below is the order of work: each
   one builds on those before it.
 
 ## Rules for every enhancement
@@ -246,7 +247,7 @@ of a line.
 - `smooth` runs Scale2x twice on the CPU (320×200 to 1280×800), only when
   the game's picture changes, and draws that with linear filtering.
 
-## E6: gamepad and touch
+## E6: gamepad and touch (done, to be tried on devices)
 
 Two ways to play without a keyboard: a gamepad, and touch on a phone or
 tablet in the web version. Both send the scan bytes and characters the
@@ -374,6 +375,56 @@ it; touch hit-tests it.
   passes unchanged;
 - a native test with enhanced mode on taps fixed points of the menu and the
   selector and compares a screenshot.
+
+**As built.** `LineCursor` (`lines.cpp`) holds a screen's lines while it
+is shown: it puts them in `Machine::lines`, with `Machine::showing`, and
+puts back those before it when the screen is left, so that a sub-screen
+(setup from Options) and its parent each have their own. A line is a box in
+the game's pixels and the key it sends; the map selector's miniatures are
+lines without a key, and a tap on one puts its place on the page in
+`Machine::tapped`, which the selector reads every tick. The tables:
+- the menu: the free picture's lines from (107,65), ten pixels apart; the
+  original's from (73,67), seven pixels to the right and ten down a line,
+  and eight higher with its F8 line in enhanced mode (the measures of
+  `add_stats_line`); F8 only in enhanced mode;
+- Options and setup: the lines `draw_option_lines` writes, and F10 at
+  y=156, where the free picture has it (the original's is taken to be
+  there too);
+- the jukebox: worked out from its texts, so they fit either set: the
+  eight song lines are F1-F8, and each help line whose text starts with a
+  key's name (`F9`, `DEL`, `F10`, `ESC`) sends that key.
+
+In enhanced mode a triangle seven pixels high stands eight pixels left of
+the line under the cursor, in colour 253, which the menu screens do not
+use; it pulses as the selector's frame does, and is black while the screen
+fades. The arrows wrap round. `wait_for_line_key` takes the place of
+`wait_for_next_key` on the screens with a cursor, and with enhanced mode off
+it is that function. The menu remembers its line in `Machine::menu_line`.
+There is no editor yet (E9); it gets its lines when it is built.
+
+The host (`play.cpp`) queues the keys of the gamepad, of taps and of the
+page's buttons, one a tick, so that a press and its release both reach the
+game; the keyboard latches its key at once, as before. `Gamepad`
+(`gamepad.{hpp,cpp}`) does the buttons and the typing; presses count only
+in enhanced mode and releases always, so nothing stays held when it is
+switched off. Up or down held while typing goes round the letters. A
+scripted run opens no gamepad. Taps are SDL finger events, from any touch
+screen, mapped to the game's pixels through the view
+(`GameView::to_game`); a tap acts on the nearest line within six pixels.
+`--keys` files take `tick tap x y` lines, and `--fresh` plays as if nothing
+were saved, for the tests.
+
+On the page (`web/shell.html`) the buttons are as planned, except that the
+row of small keys is split over the tops of the two strips: P, Q and Tab on
+the left, PgUp, PgDn and the Keys drawer on the right. Held upright, every
+button goes below the picture, the small keys above the D-pad and the big
+ones, within reach of the thumbs. The text field
+keeps one blank in it, so that deleting shows even where a phone's keyboard
+sends no Backspace key; Enter is sent as a key. SDL 3.4 shows no keyboard
+for `SDL_StartTextInput` in the browser, so the field is always the page's.
+Added to a home screen, the page counts as fullscreen in `fit()`. CTest
+also runs `tests/taps/`: the menu tapped to Options and the cursor moved,
+and the selector tapped to map 13, each screenshot compared by its SHA-256.
 
 ## E7: level packs
 

@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Stone Age Enhanced</title>
+<!-- Added to a phone's home screen the game opens fullscreen and sideways
+     (ENHANCEMENTS.md, E6). -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#000000">
 <style>
   html, body { margin: 0; background: #000; color: #ccc; font: 16px/1.4 sans-serif; }
   a { color: #8cf; }
@@ -25,12 +33,82 @@
   section, footer { max-width: 640px; }
   section ul { padding-left: 20px; }
   footer { margin: 16px 0; color: #888; font-size: 14px; text-align: center; }
+
+  /* Touch (ENHANCEMENTS.md, E6): only on touch screens, where #game gets
+     the class touch. The buttons stand in the strips beside the picture,
+     --strip wide (fit()); with no room there (upright, or a screen narrower
+     than 16:10) they are see-through over its sides. */
+  #game.touch { align-self: stretch; display: flex; justify-content: center; }
+  #game.touch, #touch { touch-action: none; user-select: none; -webkit-user-select: none;
+                        -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+  #touch[hidden], #touch [hidden] { display: none; }
+  #touch .strip { position: absolute; top: 0; bottom: 0; width: var(--strip, 120px);
+                  display: flex; flex-direction: column; justify-content: space-between;
+                  align-items: center; padding: 8px 4px; box-sizing: border-box; }
+  #left { left: 0; }
+  #right { right: 0; }
+  #touch.narrow .strip { opacity: 0.45; }
+  /* Upright the picture has room below it: all the buttons go there, within
+     reach of the thumbs, the small keys above the D-pad and the big ones. */
+  #game.touch.upright:not(:fullscreen) { padding-bottom: 230px; }
+  #game.upright #touch .strip { justify-content: flex-end; gap: 12px; opacity: 1; }
+  #touch .row { display: flex; gap: 4px; }
+  #touch button { touch-action: none; margin: 0; padding: 0; border: 1px solid #666; border-radius: 8px;
+                  background: #222; color: #ddd; font: 13px sans-serif; }
+  #touch button.held, #dpad.held { background: #555; }
+  #touch .row button { width: 38px; height: 32px; }
+  #touch .actions { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+  #touch .actions button { width: 76px; height: 46px; font-size: 15px; }
+  #dpad { position: relative; width: min(calc(var(--strip, 120px) - 8px), 150px); aspect-ratio: 1;
+          border-radius: 50%; background: #222; border: 1px solid #666; }
+  #dpad span { position: absolute; color: #aaa; font-size: 20px; line-height: 1; transform: translate(-50%, -50%); }
+  #dpad .up { left: 50%; top: 18%; } #dpad .down { left: 50%; top: 82%; }
+  #dpad .left { left: 18%; top: 50%; } #dpad .right { left: 82%; top: 50%; }
+  #dpad span.on { color: #fff; }
+  #drawer { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: grid;
+            grid-template-columns: repeat(5, 52px); gap: 6px; padding: 8px; background: rgba(0, 0, 0, 0.8);
+            border-radius: 10px; }
+  #drawer button { height: 40px; }
+  #leave-fullscreen { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; display: none; }
+  #game:fullscreen #leave-fullscreen { display: block; }
+  #game:fullscreen #right .row { margin-right: 36px; }
+  #turn { position: absolute; left: 50%; top: 4px; transform: translateX(-50%); margin: 0; padding: 4px 10px;
+          background: rgba(0, 0, 0, 0.7); border-radius: 6px; font-size: 14px; white-space: nowrap; display: none; }
+  #touch.upright #turn { display: block; }
+  #typing { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); width: 200px;
+            font: 18px sans-serif; padding: 6px; }
+  #typing[hidden] { display: none; }
 </style>
 </head>
 <body>
 <main>
 <div id="game">
   <canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
+  <!-- Touch screens only. Each button sends the scan byte of its key
+       (data-key) through stone_key, as long as it is held. -->
+  <div id="touch" hidden oncontextmenu="event.preventDefault()">
+    <div class="strip" id="left">
+      <div class="row"><button data-key="25">P</button><button data-key="16">Q</button><button data-key="15">Tab</button></div>
+      <div id="dpad"><span class="up">▲</span><span class="down">▼</span><span class="left">◀</span><span class="right">▶</span></div>
+    </div>
+    <div class="strip" id="right">
+      <div class="row"><button data-key="73">PgUp</button><button data-key="81">PgDn</button><button id="keys">Keys</button></div>
+      <div class="actions"><button data-key="1">Esc</button><button data-key="28">Enter</button><button data-key="57">Space</button></div>
+    </div>
+    <!-- The function keys, for a screen whose lines a tap does not reach. -->
+    <div id="drawer" hidden>
+      <button data-key="59">F1</button><button data-key="60">F2</button><button data-key="61">F3</button>
+      <button data-key="62">F4</button><button data-key="63">F5</button><button data-key="64">F6</button>
+      <button data-key="65">F7</button><button data-key="66">F8</button><button data-key="67">F9</button>
+      <button data-key="68">F10</button>
+    </div>
+    <button id="leave-fullscreen" aria-label="Leave fullscreen">✕</button>
+    <p id="turn">Turn the phone sideways to play.</p>
+  </div>
+  <!-- A phone shows its keyboard only for a text field: this one, while the
+       game reads characters (the password, a name for the scores). -->
+  <input id="typing" type="text" hidden autocomplete="off" autocorrect="off" autocapitalize="characters"
+         spellcheck="false" enterkeyhint="done">
   <!-- Browsers start sound only after a click, and the click gives the canvas
        the keyboard. Without it the game stands still. -->
   <button id="overlay" disabled>Loading…</button>
@@ -53,13 +131,18 @@
   <ul>
     <li><b>In a level:</b> the arrow keys move; Space or Enter selects or works a platform;
       P pauses; Q retries; Esc leaves.</li>
-    <li><b>In the menus:</b> the function keys shown on screen.</li>
+    <li><b>In the menus:</b> the function keys shown on screen, or the arrow keys and Enter.</li>
     <li><b>Maps (F2):</b> the arrow keys, PgUp/PgDn, Home and End choose a map; Enter or Space
       plays it; Tab or P opens the password screen; Esc goes back.</li>
     <li><b>Statistics (F8):</b> the arrow keys and PgUp/PgDn turn the pages; Tab or S sorts;
       Esc goes back.</li>
     <li><b>Options (F5):</b> F1 enhanced mode, F2 setup (images, maps and music from the original
       game once it is added), F3 full background, F4 flat stone, F5 sound.</li>
+    <li><b>Gamepad:</b> the D-pad or the left stick are the arrows, A Enter, X Space, B Esc,
+      Start P, Back (held) Q, LB and RB PgUp and PgDn.</li>
+    <li><b>Touch:</b> tap a line of a menu, or a map; the buttons beside the picture are the
+      keys. On Android the first tap goes fullscreen; on an iPhone, add the page to the home
+      screen.</li>
   </ul>
   <p>Scores, settings and the original game added here stay in this browser.
     <code>?original</code> after the address plays one session without the enhancements,
@@ -85,44 +168,85 @@
   var overlay = document.getElementById('overlay');
   var toolbar = document.getElementById('toolbar');
   var ready = false, ended = false;
+  // A touch screen gets the buttons (ENHANCEMENTS.md, E6); with a mouse and
+  // keyboard the page stays as it was.
+  var touch = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+  var touchControls = document.getElementById('touch');
+  var typing = document.getElementById('typing');
+  // Added to a home screen the page is the whole screen, as in fullscreen.
+  var standalone = window.matchMedia && matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches;
 
   // The canvas fills the window, or the screen in fullscreen, at the largest
   // whole multiple of 320x200 in device pixels that fits; smaller than that
   // it keeps the shape. The game draws into it at its device pixels.
+  // With touch, the strips left beside it hold the buttons.
   function fit() {
     var ratio = window.devicePixelRatio || 1;
     var width = innerWidth, height = innerHeight;
-    if (document.fullscreenElement !== game) {
+    if (document.fullscreenElement !== game && !standalone) {
       width -= 32;
       height -= 32 + toolbar.offsetHeight + statusLine.offsetHeight;
     }
     var scale = Math.floor(Math.min(width * ratio / 320, height * ratio / 200));
-    var cssWidth = scale >= 1 ? 320 * scale / ratio : 320 * Math.max(0.25, Math.min(width / 320, height / 200));
+    // SDL takes the size in whole CSS pixels and the device pixels under them
+    // rounded down, so a multiple that is not a whole number of CSS pixels
+    // (5 at 3 device pixels to one) is rounded up, or it would lack a pixel
+    // and drop to the multiple below.
+    var cssWidth = scale >= 1 ? Math.ceil(320 * scale / ratio) : 320 * Math.max(0.25, Math.min(width / 320, height / 200));
+    var cssHeight = scale >= 1 ? Math.ceil(200 * scale / ratio) : cssWidth * 200 / 320;
     canvas.style.width = cssWidth + 'px';
-    canvas.style.height = cssWidth * 200 / 320 + 'px';
+    canvas.style.height = cssHeight + 'px';
+    if (touch) {
+      // Narrower than 100 pixels, the strips are 132 wide over the picture.
+      var strip = Math.floor((width - cssWidth) / 2);
+      game.style.setProperty('--strip', (strip < 100 ? 132 : strip) + 'px');
+      touchControls.classList.toggle('narrow', strip < 100);
+      touchControls.classList.toggle('upright', innerHeight > innerWidth);
+      game.classList.toggle('upright', innerHeight > innerWidth);
+    }
+  }
+  if (touch) {
+    game.classList.add('touch');
+    touchControls.hidden = false;
   }
   // Registered before SDL's, so SDL reads the new size on the same resize.
   window.addEventListener('resize', fit);
   fit();
 
+  // The game has the keyboard while the canvas has it, or the text field
+  // that stands in for it on a phone.
+  function playing() {
+    return document.activeElement === canvas || document.activeElement === typing;
+  }
   function showOverlay() {
     overlay.disabled = !ready;
-    overlay.textContent = ended ? 'Play again' : !ready ? 'Loading…' : 'Click to play';
-    overlay.hidden = ready && !ended && document.activeElement === canvas;
+    overlay.textContent = ended ? 'Play again' : !ready ? 'Loading…' : touch ? 'Tap to play' : 'Click to play';
+    overlay.hidden = ready && !ended && playing();
   }
   function tellFocus() {
     if (ready)
-      Module.ccall('stone_focus', null, ['number'], [document.activeElement === canvas ? 1 : 0]);
+      Module.ccall('stone_focus', null, ['number'], [playing() ? 1 : 0]);
     showOverlay();
   }
   canvas.addEventListener('focus', tellFocus);
   canvas.addEventListener('blur', tellFocus);
+  typing.addEventListener('focus', tellFocus);
+  typing.addEventListener('blur', function () {
+    // Focus moving from the field to the canvas is not a pause.
+    setTimeout(tellFocus, 0);
+  });
   canvas.addEventListener('mousedown', function () { canvas.focus(); });
   overlay.onclick = function () {
     if (ended)
-      location.reload();
-    else
-      canvas.focus();
+      return location.reload();
+    // On Android the first tap also asks for fullscreen and then for the
+    // screen to stay sideways; the game goes on if either is refused.
+    if (touch && !document.fullscreenElement && game.requestFullscreen)
+      game.requestFullscreen({ navigationUI: 'hide' }).then(function () {
+        if (screen.orientation && screen.orientation.lock)
+          return screen.orientation.lock('landscape');
+      }).catch(function () {});
+    canvas.focus();
   };
 
   // Keys the browser would act on: F5 reloads, Tab leaves the canvas, the
@@ -157,6 +281,129 @@
     canvas.focus();
   });
 
+  // --- Touch (ENHANCEMENTS.md, E6) ---
+  // A key pressed or released, as the keyboard would; held keys are
+  // released when the page is left.
+  var held = {};
+  function sendKey(code, down) {
+    if (!ready)
+      return;
+    if (down)
+      held[code] = true;
+    else if (held[code])
+      delete held[code];
+    else
+      return;
+    Module.ccall('stone_key', null, ['number', 'number'], [code, down ? 1 : 0]);
+  }
+  function releaseAll() {
+    Object.keys(held).forEach(function (code) { sendKey(Number(code), false); });
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden)
+      releaseAll();
+  });
+  window.addEventListener('blur', releaseAll);
+  // An element held with a finger: down when it goes down, up when it lifts,
+  // is cancelled or is taken away. Cancelling pointerdown keeps the focus
+  // where it is, so the canvas keeps the keyboard.
+  function hold(element, press, release, move) {
+    element.addEventListener('pointerdown', function (event) {
+      event.preventDefault();
+      element.setPointerCapture(event.pointerId);
+      element.classList.add('held');
+      press(event);
+    });
+    if (move)
+      element.addEventListener('pointermove', function (event) {
+        if (element.hasPointerCapture(event.pointerId))
+          move(event);
+      });
+    function up(event) {
+      if (!element.classList.contains('held'))
+        return;
+      element.classList.remove('held');
+      release(event);
+    }
+    element.addEventListener('pointerup', up);
+    element.addEventListener('pointercancel', up);
+    element.addEventListener('lostpointercapture', up);
+  }
+  var drawer = document.getElementById('drawer');
+  Array.prototype.forEach.call(touchControls.querySelectorAll('button[data-key]'), function (button) {
+    var code = Number(button.dataset.key);
+    hold(button, function () { sendKey(code, true); }, function () {
+      sendKey(code, false);
+      if (drawer.contains(button))
+        drawer.hidden = true;
+    });
+  });
+  hold(document.getElementById('keys'), function () { drawer.hidden = !drawer.hidden; }, function () {});
+  hold(document.getElementById('leave-fullscreen'), function () {}, function () {
+    if (document.fullscreenElement)
+      document.exitFullscreen();
+  });
+  // The D-pad: the finger's direction from its middle, the stronger axis
+  // winning. Sliding to another direction releases the old arrow and
+  // presses the new one.
+  var dpad = document.getElementById('dpad'), arrow = 0;
+  var arrows = { up: 72, down: 80, left: 75, right: 77 };
+  function aim(event) {
+    var box = dpad.getBoundingClientRect();
+    var x = event.clientX - box.left - box.width / 2, y = event.clientY - box.top - box.height / 2;
+    var to = 0;
+    if (Math.max(Math.abs(x), Math.abs(y)) > box.width * 0.12)
+      to = Math.abs(x) > Math.abs(y) ? (x < 0 ? arrows.left : arrows.right) : (y < 0 ? arrows.up : arrows.down);
+    if (to === arrow)
+      return;
+    if (arrow)
+      sendKey(arrow, false);
+    arrow = to;
+    if (arrow)
+      sendKey(arrow, true);
+    Object.keys(arrows).forEach(function (name) {
+      dpad.querySelector('.' + name).classList.toggle('on', arrows[name] === arrow);
+    });
+  }
+  hold(dpad, aim, function () { aim({ clientX: NaN, clientY: NaN }); }, aim);
+
+  // Typing on a phone: the text field over the picture, while the game reads
+  // characters (play.cpp calls setTyping). It keeps one blank, so that
+  // deleting shows as an empty field even where the keyboard sends no
+  // Backspace key.
+  function resetTyping() {
+    typing.value = ' ';
+    typing.setSelectionRange(1, 1);
+  }
+  function tapKey(code) {
+    Module.ccall('stone_key', null, ['number', 'number'], [code, 1]);
+    Module.ccall('stone_key', null, ['number', 'number'], [code, 0]);
+  }
+  typing.addEventListener('input', function () {
+    if (typing.value.length === 0)
+      tapKey(14); // Backspace
+    else if (typing.value.length > 1)
+      Module.ccall('stone_type', null, ['string'], [typing.value.slice(1)]);
+    resetTyping();
+  });
+  typing.addEventListener('keydown', function (event) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      tapKey(28);
+    }
+  });
+  function setTyping(on, password) {
+    if (!touch)
+      return;
+    typing.hidden = !on;
+    typing.placeholder = password ? 'Password' : 'Your name';
+    if (on) {
+      resetTyping();
+      typing.focus();
+    } else if (document.activeElement === typing)
+      canvas.focus();
+  }
+
   var Module = {
     canvas: canvas,
     arguments: ['original', 'free'].filter(function (name) { return options.has(name); })
@@ -174,6 +421,8 @@
     postRun: function () { window.dispatchEvent(new Event('resize')); },
     print: function (text) { console.log(text); },
     printErr: function (text) { console.error(text); },
+    // The game started or stopped reading characters (play.cpp).
+    setTyping: setTyping,
     // The game ended (INT 21h/4Ch): play again in place of closing.
     gameEnded: function () {
       ended = true;

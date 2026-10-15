@@ -177,18 +177,28 @@ Game::MenuChoice Game::menu() const {
     screen.set_layout(false);
     load_sprites();
     load_picture(menu_picture);
-    draw_menu();
+    LineCursor cursor(*this, Machine::menu, menu_lines(), m.menu_line); // not original (E6)
+    draw_menu(&cursor);
     screen.fade_in();
     for (;;) {
         read_scan();
         for (unsigned idle = 3500;;) {
             screen.wait(1);
             music.tick();
+            cursor.pulse();
             if (--idle == 0)
                 return pictures;
-            const uint8_t key = read_scan();
+            uint8_t key = read_scan();
             if (!scan_change())
                 continue;
+            if (key < 0x80) { // not original (E6): the line cursor of enhanced mode
+                key = cursor.key(key);
+                m.menu_line = cursor.at;
+                if (cursor.moved()) {
+                    draw_menu(&cursor);
+                    break; // the 50 seconds start again
+                }
+            }
             if (key == key_c)
                 return pictures;
             if (key == esc)
@@ -200,6 +210,7 @@ Game::MenuChoice Game::menu() const {
             else if (key == f7)
                 background_bank() ^= 1;
             else {
+                cursor.leave();
                 screen.fade_out();
                 switch (key) {
                 case f1: run_game(0); break;
@@ -212,13 +223,13 @@ Game::MenuChoice Game::menu() const {
                 enter_score();
                 return menu_again;
             }
-            draw_menu();
+            draw_menu(&cursor);
             break; // the 50 seconds start again
         }
     }
 }
 
-void Game::draw_menu() const {
+void Game::draw_menu(const LineCursor* cursor) const {
     // Not original (E4): the original's picture makes room for F8.
     const bool stats_line = m.enhanced && m.original_assets && load_settings().original(Settings::images);
     const unsigned up = stats_line ? 8 : 0;
@@ -232,6 +243,8 @@ void Game::draw_menu() const {
         screen.draw_sprite(184, 239, 60);
     }
     screen.draw_sprite(background_bank() & 1 ? 182 : 181, 208, 127 - up); // A or B
+    if (cursor)
+        cursor->draw();
     screen.flip();
 }
 
@@ -557,6 +570,7 @@ bool Game::wait_for_key(unsigned ticks) const {
 // --- Password ---
 
 void Game::enter_password() const {
+    LineCursor typing(*this, Machine::password, {}); // not original (E6): for the gamepad
     m.connect_keyboard(false); // characters come from DOS here
     unpack(password_sheet_resource(), sprite_pixels());
     unpack(password_records_resource(), sprite_records());
@@ -593,6 +607,7 @@ void Game::enter_password() const {
             break;
     }
     install_keyboard();
+    typing.leave();
     int found = -1;
     bool cheat_level = false;
     if (length == 6) {
@@ -744,6 +759,7 @@ void Game::enter_score() const {
             std::copy_n(score_row(row) + 2, 28, score_row(row + 1) + 2);
         for (int n = 0; n < 6; ++n)
             score_row(place)[24 + 5 - n] = typed[n];
+        LineCursor typing(*this, Machine::name_entry, {}); // not original (E6): for the gamepad
         m.connect_keyboard(false);
         prepare_score_screen();
         screen.save_page();
@@ -793,6 +809,7 @@ void Game::enter_score() const {
         screen.restore(text_x(), text_y(), 8, 16);
         screen.flip();
         install_keyboard();
+        typing.leave();
         screen.fade_out();
         save_scores();
         show_scores();
@@ -854,11 +871,13 @@ void Game::jukebox() const {
     write_jukebox(jukebox_prompt());
     screen.save_page();
     screen.flip();
-    draw_playlist();
+    LineCursor cursor(*this, Machine::jukebox, jukebox_lines()); // not original (E6)
+    const auto redraw = [&] { draw_playlist(&cursor); };
+    redraw();
     screen.fade_in();
     for (;;) {
         const unsigned songs = music.playlist_length();
-        const uint8_t key = wait_for_next_key();
+        const uint8_t key = wait_for_line_key(cursor, redraw);
         if (key >= f1 && key <= f8) {
             if (songs >= 20)
                 continue;
@@ -880,15 +899,16 @@ void Game::jukebox() const {
         } else if (key == esc) {
             playlist_position() = 0;
             song_ticks() = 0;
+            cursor.leave();
             screen.fade_out();
             return;
         } else
             continue;
-        draw_playlist();
+        redraw();
     }
 }
 
-void Game::draw_playlist() const {
+void Game::draw_playlist(const LineCursor* cursor) const {
     screen.restore_page();
     jukebox_letters() = 50;
     text_y() = 147;
@@ -905,6 +925,8 @@ void Game::draw_playlist() const {
             write_jukebox(uint8_t(playlist()[n] + '1'));
         }
     }
+    if (cursor)
+        cursor->draw();
     screen.flip();
 }
 
@@ -930,17 +952,20 @@ void Game::write_jukebox(uint8_t character) const {
 
 void Game::options() const {
     show_options_screen();
-    draw_options();
+    LineCursor cursor(*this, Machine::options, option_lines(5)); // not original (E6)
+    const auto redraw = [&] { draw_options(&cursor); };
+    redraw();
     screen.fade_in();
     for (;;) {
-        const uint8_t key = wait_for_next_key();
+        const uint8_t key = wait_for_line_key(cursor, redraw);
         if (key == f1) // not original: the original's F1-F3 follow as F3-F5
             set_enhanced(!m.enhanced);
         else if (key == f2) { // not original
+            cursor.hide();
             screen.fade_out();
             asset_options();
             show_options_screen(); // in the graphics now chosen
-            draw_options();
+            redraw();
             screen.fade_in();
             continue;
         } else if (key == f3)
@@ -956,8 +981,9 @@ void Game::options() const {
             music.play_next();
         } else if (key == f10)
             break;
-        draw_options();
+        redraw();
     }
+    cursor.leave();
     screen.fade_out();
 }
 
@@ -969,13 +995,13 @@ void Game::show_options_screen() const {
     screen.save_page();
 }
 
-void Game::draw_options() const {
+void Game::draw_options(const LineCursor* cursor) const {
     const char* const labels[] = {"F1. ENHANCED", "F2. SETUP", "F3. FULL BACK",
                                   "F4. FLAT STONE", "F5. ADLIB SOUND"};
     const auto sprite = [](bool on) { return uint8_t(on ? 10 : 11); };
     const uint8_t sprites[] = {sprite(m.enhanced), 0, sprite(full_background() != 0),
                                sprite(flat_stone() != 0), sprite(adlib_enabled() != 0)};
-    draw_option_lines(labels, sprites, 5);
+    draw_option_lines(labels, sprites, 5, cursor);
 }
 
 // Not original. The picture's lines F1-F5 are covered with the commonest
@@ -984,7 +1010,7 @@ void Game::draw_options() const {
 // picture's lines use most, each with its ON or OFF sprite. F10 stays as
 // the picture has it.
 void Game::draw_option_lines(const char* const* labels, const uint8_t* sprites,
-                             unsigned count) const {
+                             unsigned count, const LineCursor* cursor) const {
     const unsigned left = 88, top = 62, width = 124, height = 86;
     const uint8_t* const picture = m.at(picture_buffer()[1], 0);
     const uint8_t* const palette = picture + 320 * 200;
@@ -1012,6 +1038,8 @@ void Game::draw_option_lines(const char* const* labels, const uint8_t* sprites,
             screen.draw_sprite(sprites[n], sprites[n] == 10 ? 217 : 214, 66 + 17 * n);
     }
     text_colour() = colour;
+    if (cursor)
+        cursor->draw();
     screen.flip();
 }
 
@@ -1025,6 +1053,7 @@ void Game::asset_options() const {
     for (unsigned n = 0; n < Settings::parts; ++n)
         original[n] = m.original_assets && saved.original(Settings::Part(n));
     show_options_screen();
+    LineCursor cursor(*this, Machine::setup, option_lines(Settings::parts + 1)); // not original (E6)
     const auto draw = [&]() {
         const char* const names[] = {"F1. IMAGES ", "F2. MAPS   ", "F3. MUSIC  "};
         std::string lines[Settings::parts + 1];
@@ -1041,12 +1070,12 @@ void Game::asset_options() const {
         lines[Settings::parts] = "F4. VIEW" + std::string(7 - name.size(), ' ') + name;
         labels[Settings::parts] = lines[Settings::parts].c_str();
         labels[Settings::parts + 1] = "NO ORIGINAL";
-        draw_option_lines(labels, sprites, Settings::parts + (m.original_assets ? 1 : 2));
+        draw_option_lines(labels, sprites, Settings::parts + (m.original_assets ? 1 : 2), &cursor);
     };
     draw();
     screen.fade_in();
     for (;;) {
-        const uint8_t key = wait_for_next_key();
+        const uint8_t key = wait_for_line_key(cursor, draw);
         if (key == f10)
             break;
         if (key >= f1 && key < f1 + Settings::parts && m.original_assets) {
@@ -1057,6 +1086,7 @@ void Game::asset_options() const {
             draw();
         }
     }
+    cursor.leave();
     screen.fade_out();
     Settings settings = load_settings();
     if (settings.display() != Settings::Display(m.display)) {

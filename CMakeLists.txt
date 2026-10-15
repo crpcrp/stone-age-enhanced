@@ -41,7 +41,7 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/research/tests/CMakeLists.txt" AND EXISTS "${CMAK
 endif()
 option(STONE_BUILD_TESTS "Build and register the tests in research/tests (needs original_data/)" ${STONE_TESTS_DEFAULT})
 
-set(STONE_CORE_SOURCES src/stone.cpp src/machine.cpp src/game.cpp src/screens.cpp src/selector.cpp src/stats.cpp src/video.cpp
+set(STONE_CORE_SOURCES src/stone.cpp src/machine.cpp src/game.cpp src/screens.cpp src/selector.cpp src/stats.cpp src/lines.cpp src/video.cpp
     src/music.cpp src/assets.cpp src/content.cpp src/package.cpp src/settings.cpp src/zip.cpp)
 add_library(stone_core ${STONE_CORE_SOURCES})
 target_include_directories(stone_core PUBLIC src)
@@ -130,7 +130,7 @@ if(STONE_BUILD_PLAYER)
     endif()
     add_library(stone_audio_core src/audio.cpp)
     target_link_libraries(stone_audio_core PUBLIC stone_core ymfm)
-    add_executable(stone_play src/play.cpp)
+    add_executable(stone_play src/play.cpp src/gamepad.cpp)
     target_link_libraries(stone_play PRIVATE stone_audio_core SDL3::SDL3)
     if(MSVC)
         target_sources(stone_play PRIVATE src/play.manifest)
@@ -156,6 +156,26 @@ if(STONE_BUILD_PLAYER)
             "--pre-js=${CMAKE_SOURCE_DIR}/web/original.js"
             "--shell-file=${CMAKE_BINARY_DIR}/shell.html"
             "--preload-file=${STONE_PACKAGE}@/stoneage.dat")
+        # What a phone needs to add the page to its home screen (E6).
+        foreach(web_file manifest.webmanifest icon-192.png icon-512.png)
+            add_custom_command(TARGET stone_play POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${CMAKE_SOURCE_DIR}/web/${web_file}" "${STONE_OUTPUT}/${web_file}")
+        endforeach()
+    endif()
+    # Scripted runs of the free set that tap the screen (ENHANCEMENTS.md, E6):
+    # each screenshot is compared by its SHA-256. options.keys taps F5 in
+    # the menu and moves the cursor down; selector.keys taps F2, then map 13.
+    if(BUILD_TESTING AND NOT EMSCRIPTEN)
+        set(tap_runs options selector)
+        set(tap_ticks 760 900)
+        set(tap_hashes dc22f9e3a3fad1d7b7f53f1c855bc0386e75ca616975825e904581d236738eb9
+                       87557027b2516e928d4bd50917fc6266787c7265a4fe177b573f7878151f5830)
+        foreach(name ticks hash IN ZIP_LISTS tap_runs tap_ticks tap_hashes)
+            add_test(NAME taps_${name} COMMAND ${CMAKE_COMMAND} -DPLAYER=$<TARGET_FILE:stone_play>
+                "-DPACKAGE=${STONE_OUTPUT}/stoneage.dat" "-DKEYS=${CMAKE_SOURCE_DIR}/tests/taps/${name}.keys"
+                -DTICKS=${ticks} "-DOUT=${CMAKE_BINARY_DIR}/taps_${name}.bmp" -DSHA256=${hash}
+                -P "${CMAKE_SOURCE_DIR}/tests/screenshot_test.cmake")
+        endforeach()
     endif()
     if(WIN32)
         add_custom_command(TARGET stone_play POST_BUILD
