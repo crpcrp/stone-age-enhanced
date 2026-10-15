@@ -312,7 +312,8 @@ sideways is about 20:9, so there is a strip free on each side of it.
   game fullscreen and sideways when it is added to the home screen.
 - Held upright, the page says to turn the phone.
 - In fullscreen `fit()` reserves no room for the toolbar, and a small ✕
-  leaves fullscreen, since a phone has no Esc.
+  leaves fullscreen, since a phone has no Esc. It stands above the right
+  strip's buttons, not beside them.
 
 **Buttons,** in the strips beside the picture, so they cover nothing. They
 are drawn see-through only where there is no strip (upright, or a screen
@@ -320,7 +321,7 @@ narrower than 16:10).
 
 | Where | Buttons |
 |---|---|
-| Left strip | A D-pad. Sliding the finger to another direction releases the old arrow and presses the new one. |
+| Left strip | The arrows, four buttons in a cross. |
 | Right strip | Space, Enter, Esc. |
 | A row above them | P, Q, Tab, PgUp, PgDn. |
 | A "Keys" drawer | F1 to F10, for any screen the line table does not cover. |
@@ -331,8 +332,9 @@ key when the game reads characters (`type_key`). Making browser keyboard
 events instead is less reliable.
 
 The browser must not get in the way:
-- The buttons cancel `pointerdown`, so the canvas keeps the focus. Without
-  it the game stands still (`stone_focus`) at every press.
+- The buttons cancel `pointerdown`, and so does a tap beside them, so the
+  canvas keeps the focus. Without it the game stands still (`stone_focus`)
+  and asks for a tap at every press.
 - `touch-action: none` on the game and the buttons stops scrolling and
   double-tap zoom; long-press selection and the context menu are off.
 - Lifting a finger, `pointercancel` and losing the page release the key.

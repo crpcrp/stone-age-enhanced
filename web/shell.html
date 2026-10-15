@@ -55,23 +55,24 @@
   #touch .row { display: flex; gap: 4px; }
   #touch button { touch-action: none; margin: 0; padding: 0; border: 1px solid #666; border-radius: 8px;
                   background: #222; color: #ddd; font: 13px sans-serif; }
-  #touch button.held, #dpad.held { background: #555; }
+  #touch button.held { background: #555; }
   #touch .row button { width: 38px; height: 32px; }
   #touch .actions { display: flex; flex-direction: column; gap: 8px; align-items: center; }
   #touch .actions button { width: 76px; height: 46px; font-size: 15px; }
-  #dpad { position: relative; width: min(calc(var(--strip, 120px) - 8px), 150px); aspect-ratio: 1;
-          border-radius: 50%; background: #222; border: 1px solid #666; }
-  #dpad span { position: absolute; color: #aaa; font-size: 20px; line-height: 1; transform: translate(-50%, -50%); }
-  #dpad .up { left: 50%; top: 18%; } #dpad .down { left: 50%; top: 82%; }
-  #dpad .left { left: 18%; top: 50%; } #dpad .right { left: 82%; top: 50%; }
-  #dpad span.on { color: #fff; }
+  /* The arrows: four buttons in a cross, raised off the bottom edge. */
+  #dpad { --cell: min(calc((var(--strip, 120px) - 16px) / 3), 48px); display: grid; gap: 2px;
+          grid-template: repeat(3, var(--cell)) / repeat(3, var(--cell)); margin-bottom: 24px;
+          grid-template-areas: ". up ." "left . right" ". down ."; }
+  #touch #dpad button { font-size: 18px; }
+  #dpad .up { grid-area: up; } #dpad .down { grid-area: down; }
+  #dpad .left { grid-area: left; } #dpad .right { grid-area: right; }
   #drawer { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: grid;
             grid-template-columns: repeat(5, 52px); gap: 6px; padding: 8px; background: rgba(0, 0, 0, 0.8);
             border-radius: 10px; }
   #drawer button { height: 40px; }
   #leave-fullscreen { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; display: none; }
   #game:fullscreen #leave-fullscreen { display: block; }
-  #game:fullscreen #right .row { margin-right: 36px; }
+  #game:fullscreen #right { padding-top: 48px; }
   #turn { position: absolute; left: 50%; top: 4px; transform: translateX(-50%); margin: 0; padding: 4px 10px;
           background: rgba(0, 0, 0, 0.7); border-radius: 6px; font-size: 14px; white-space: nowrap; display: none; }
   #touch.upright #turn { display: block; }
@@ -89,7 +90,7 @@
   <div id="touch" hidden oncontextmenu="event.preventDefault()">
     <div class="strip" id="left">
       <div class="row"><button data-key="25">P</button><button data-key="16">Q</button><button data-key="15">Tab</button></div>
-      <div id="dpad"><span class="up">▲</span><span class="down">▼</span><span class="left">◀</span><span class="right">▶</span></div>
+      <div id="dpad"><button class="up" data-key="72">▲</button><button class="left" data-key="75">◀</button><button class="right" data-key="77">▶</button><button class="down" data-key="80">▼</button></div>
     </div>
     <div class="strip" id="right">
       <div class="row"><button data-key="73">PgUp</button><button data-key="81">PgDn</button><button id="keys">Keys</button></div>
@@ -307,18 +308,13 @@
   // An element held with a finger: down when it goes down, up when it lifts,
   // is cancelled or is taken away. Cancelling pointerdown keeps the focus
   // where it is, so the canvas keeps the keyboard.
-  function hold(element, press, release, move) {
+  function hold(element, press, release) {
     element.addEventListener('pointerdown', function (event) {
       event.preventDefault();
       element.setPointerCapture(event.pointerId);
       element.classList.add('held');
       press(event);
     });
-    if (move)
-      element.addEventListener('pointermove', function (event) {
-        if (element.hasPointerCapture(event.pointerId))
-          move(event);
-      });
     function up(event) {
       if (!element.classList.contains('held'))
         return;
@@ -343,29 +339,14 @@
     if (document.fullscreenElement)
       document.exitFullscreen();
   });
-  // The D-pad: the finger's direction from its middle, the stronger axis
-  // winning. Sliding to another direction releases the old arrow and
-  // presses the new one.
-  var dpad = document.getElementById('dpad'), arrow = 0;
-  var arrows = { up: 72, down: 80, left: 75, right: 77 };
-  function aim(event) {
-    var box = dpad.getBoundingClientRect();
-    var x = event.clientX - box.left - box.width / 2, y = event.clientY - box.top - box.height / 2;
-    var to = 0;
-    if (Math.max(Math.abs(x), Math.abs(y)) > box.width * 0.12)
-      to = Math.abs(x) > Math.abs(y) ? (x < 0 ? arrows.left : arrows.right) : (y < 0 ? arrows.up : arrows.down);
-    if (to === arrow)
-      return;
-    if (arrow)
-      sendKey(arrow, false);
-    arrow = to;
-    if (arrow)
-      sendKey(arrow, true);
-    Object.keys(arrows).forEach(function (name) {
-      dpad.querySelector('.' + name).classList.toggle('on', arrows[name] === arrow);
-    });
+  // A tap beside the buttons keeps the focus where it is too, so the game
+  // does not stop and ask for a tap to play.
+  function keepFocus(event) {
+    if (touch && !event.target.closest('button, input, a, canvas'))
+      event.preventDefault();
   }
-  hold(dpad, aim, function () { aim({ clientX: NaN, clientY: NaN }); }, aim);
+  document.addEventListener('pointerdown', keepFocus);
+  document.addEventListener('mousedown', keepFocus);
 
   // Typing on a phone: the text field over the picture, while the game reads
   // characters (play.cpp calls setTyping). It keeps one blank, so that
