@@ -69,23 +69,26 @@ in one folder. [BUILDING.md](BUILDING.md) has more detail.
   lives lost, give-ups and best time, ten to a page. The arrow keys and
   PgUp/PgDn turn the pages, Tab or S sorts the maps by number or by
   attempts, Esc goes back.
-- **Options (F5):** F1 enhanced mode, F2 assets, F3 full background, F4
+- **Options (F5):** F1 enhanced mode, F2 setup, F3 full background, F4
   flat stone, F5 sound. With enhanced mode off the game is the original's:
   F2 in the menu is the password screen, F8 does nothing and no progress
   is recorded.
   `stone_play.exe --original` plays one session that way without changing
   the setting.
-- **Assets (F2 in Options):** F1 images, F2 maps, F3 music, each FREE or
+- **Setup (F2 in Options):** F1 images, F2 maps, F3 music, each FREE or
   ORIG (the original game's). They can be changed only when the original
   game's files are there (see below); F10 goes back to Options, which then
   shows the images chosen. Images are all pictures, colours and texts; maps
   are the levels with their passwords; music is the songs with their titles
-  in the jukebox.
+  in the jukebox. F4 (VIEW) chooses how the picture fills the window in
+  enhanced mode: SHARP, square pixels at a whole multiple; CRT, 4:3 as on a
+  DOS monitor, with scanlines; SMOOTH, 4:3 with the edges of the pixel art
+  rounded off.
 
 The furthest map reached and the best result on each map cleared (time
 from arrival to exit, pauses left out, and points including the bonus),
-for each set of levels, the statistics, the enhanced-mode setting
-and the asset choices are kept in `STONEAGE.ENH` beside the player. Games
+for each set of levels, the statistics, the enhanced-mode setting,
+the asset choices and the display preset are kept in `STONEAGE.ENH` beside the player. Games
 started after MAYDAY record no bests and no statistics. The high
 scores of the original maps stay in the original's `STONEAGE.HI`; those of
 the free maps are in `FREEMAPS.HI`.

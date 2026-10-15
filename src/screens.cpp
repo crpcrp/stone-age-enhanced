@@ -2,6 +2,7 @@
 // screens, the pages between levels, music.
 #include "game.hpp"
 #include <algorithm>
+#include <cctype>
 #include <cstdlib>
 #include <cstring>
 #include <string>
@@ -973,7 +974,7 @@ void Game::show_options_screen() const {
 }
 
 void Game::draw_options() const {
-    const char* const labels[] = {"F1. ENHANCED", "F2. ASSETS", "F3. FULL BACK",
+    const char* const labels[] = {"F1. ENHANCED", "F2. SETUP", "F3. FULL BACK",
                                   "F4. FLAT STONE", "F5. ADLIB SOUND"};
     const auto sprite = [](bool on) { return uint8_t(on ? 10 : 11); };
     const uint8_t sprites[] = {sprite(m.enhanced), 0, sprite(full_background() != 0),
@@ -1020,7 +1021,8 @@ void Game::draw_option_lines(const char* const* labels, const uint8_t* sprites,
 
 // Not original. Each line ends in FREE or ORIG, within the 15 characters
 // the covered lines hold. Without the original's files everything is free
-// and stays so, and a line says why.
+// and stays so, and a line says why. F4 cycles the display preset (E5),
+// which the picture has no sixth line for in Options itself.
 void Game::asset_options() const {
     const Settings saved = load_settings();
     bool original[Settings::parts];
@@ -1029,15 +1031,21 @@ void Game::asset_options() const {
     show_options_screen();
     const auto draw = [&]() {
         const char* const names[] = {"F1. IMAGES ", "F2. MAPS   ", "F3. MUSIC  "};
-        std::string lines[Settings::parts];
-        const char* labels[Settings::parts + 1];
-        const uint8_t sprites[Settings::parts + 1] = {};
+        std::string lines[Settings::parts + 1];
+        const char* labels[Settings::parts + 2];
+        const uint8_t sprites[Settings::parts + 2] = {};
         for (unsigned n = 0; n < Settings::parts; ++n) {
             lines[n] = std::string(names[n]) + (original[n] ? "ORIG" : "FREE");
             labels[n] = lines[n].c_str();
         }
-        labels[Settings::parts] = "NO ORIGINAL";
-        draw_option_lines(labels, sprites, Settings::parts + (m.original_assets ? 0 : 1));
+        // E5: the display preset, its name ending where FREE and ORIG do.
+        std::string name = Settings::display_name(Settings::Display(m.display));
+        for (char& c : name)
+            c = char(std::toupper(static_cast<unsigned char>(c)));
+        lines[Settings::parts] = "F4. VIEW" + std::string(7 - name.size(), ' ') + name;
+        labels[Settings::parts] = lines[Settings::parts].c_str();
+        labels[Settings::parts + 1] = "NO ORIGINAL";
+        draw_option_lines(labels, sprites, Settings::parts + (m.original_assets ? 1 : 2));
     };
     draw();
     screen.fade_in();
@@ -1048,10 +1056,17 @@ void Game::asset_options() const {
         if (key >= f1 && key < f1 + Settings::parts && m.original_assets) {
             original[key - f1] = !original[key - f1];
             draw();
+        } else if (key == f4) { // shown at once: the host reads m.display every frame
+            m.display = (m.display + 1) % Settings::displays;
+            draw();
         }
     }
     screen.fade_out();
     Settings settings = load_settings();
+    if (settings.display() != Settings::Display(m.display)) {
+        settings.set_display(Settings::Display(m.display));
+        save_settings(settings);
+    }
     bool changed = false;
     for (unsigned n = 0; n < Settings::parts; ++n)
         if (m.original_assets && original[n] != saved.original(Settings::Part(n))) {

@@ -91,6 +91,11 @@ public:
     // of those sets.
     bool original_assets = false;
     std::function<void(Machine&)> change_assets;
+    // Not original (ENHANCEMENTS.md, E5): the display preset, a
+    // Settings::Display. The host sets it from STONEAGE.ENH at the start,
+    // Options changes it, and the host reads it every frame and shows the
+    // picture that way while enhanced mode is on.
+    unsigned display = 0;
     // While the game has its INT 9 handler removed (password and name entry)
     // it reads characters through DOS instead of scan bytes. Extended keys
     // arrive as 0 followed by the scan code, as DOS delivers them.
