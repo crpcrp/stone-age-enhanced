@@ -354,6 +354,16 @@ void Screen::swap_with_buffer() const {
     write_planes(15);
 }
 
+void Screen::fill(unsigned x, unsigned y, unsigned width, unsigned height,
+                  uint8_t colour) const {
+    for (unsigned row = y; row < y + height; ++row)
+        for (unsigned column = x; column < x + width; ++column) {
+            write_planes(1 << (column & 3));
+            m.write8(video, uint16_t(names.draw_page() + row * line + column / 4), colour);
+        }
+    write_planes(15);
+}
+
 const uint8_t* Screen::write(const uint8_t* text) const {
     names.text_line_x() = names.text_x();
     for (;;) {

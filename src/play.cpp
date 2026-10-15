@@ -1,10 +1,15 @@
 // SDL host for the game. All game behavior is the readable program of game.hpp
 // on stone::Machine; this file only presents frames, feeds keys, plays the songs
 // the game asks its driver for, and stores the score file.
-//   stone_play [package] [--free] [--ticks N] [--screenshot FILE.bmp]
+//   stone_play [package] [--free] [--original] [--ticks N] [--keys FILE]
+//              [--screenshot FILE.bmp]
 // The asset package (made by stone_assets) defaults to stoneage.dat beside the
 // player: the free asset set. If the original game's files are found in a
 // folder original_data, they are used instead, unless --free is given.
+// Enhanced mode follows the setting saved in STONEAGE.ENH (on without one);
+// --original turns it off for this run without changing the saved setting.
+// --keys gives a scripted run (--ticks) its keys: lines `tick scan`, the scan
+// byte in hex (80h added for a release) latched from that tick on.
 #define SDL_MAIN_HANDLED
 #include <SDL3/SDL_audio.h>
 #include <SDL3/SDL_error.h>
@@ -16,11 +21,13 @@
 #include <SDL3/SDL_timer.h>
 #include "assets.hpp"
 #include "package.hpp"
+#include "settings.hpp"
 #include "audio.hpp"
 #include "host_clock.hpp"
 #include "host_sdl.hpp"
 #include "keyboard.hpp"
 #include "machine.hpp"
+#include <algorithm>
 #include <ctime>
 #include <fstream>
 #include <iostream>
@@ -99,20 +106,35 @@ int main(int argc, char** argv) {
     try {
         std::string path, screenshot;
         long scripted_ticks = -1;
-        bool free_set = false;
+        std::vector<std::pair<long, uint8_t>> keys; // tick, scan byte
+        bool free_set = false, original = false;
         for (int i = 1; i < argc; ++i) {
             const std::string arg = argv[i];
             if (arg == "--ticks" && i + 1 < argc)
                 scripted_ticks = std::stol(argv[++i]);
-            else if (arg == "--screenshot" && i + 1 < argc)
+            else if (arg == "--keys" && i + 1 < argc) {
+                std::ifstream file(argv[++i]);
+                if (!file)
+                    throw std::runtime_error(std::string("Cannot read ") + argv[i]);
+                long tick;
+                std::string scan;
+                while (file >> tick >> scan)
+                    keys.emplace_back(tick, uint8_t(std::stoul(scan, nullptr, 16)));
+                std::stable_sort(keys.begin(), keys.end(),
+                                 [](const std::pair<long, uint8_t>& a,
+                                    const std::pair<long, uint8_t>& b) { return a.first < b.first; });
+            } else if (arg == "--screenshot" && i + 1 < argc)
                 screenshot = argv[++i];
             else if (arg == "--free")
                 free_set = true;
+            else if (arg == "--original")
+                original = true;
             else if (!arg.empty() && arg[0] != '-')
                 path = arg;
             else
                 throw std::runtime_error(
-                    "Usage: stone_play [package] [--free] [--ticks N] [--screenshot FILE.bmp]");
+                    "Usage: stone_play [package] [--free] [--original] [--ticks N] "
+                    "[--keys FILE] [--screenshot FILE.bmp]");
         }
         const bool scripted = scripted_ticks >= 0;
         // Game files come from the asset package; new scores are stored beside
@@ -191,6 +213,9 @@ int main(int argc, char** argv) {
         machine.save_file = [&](const std::string& name, const stone::Bytes& data) {
             stone::write_file(score_directory + name, data);
         };
+        stone::Bytes settings; // empty when there is none: the defaults
+        read(score_directory + stone::Settings::file_name, settings);
+        machine.enhanced = !original && stone::Settings(settings).enhanced();
         machine.start(); // the game ends through INT 21h/4Ch
 
         stone::HostTickClock clock;
@@ -198,6 +223,7 @@ int main(int argc, char** argv) {
         uint8_t scan = 0;
         bool quit = false, focused = true, typing = false;
         long ticks = 0;
+        std::size_t next_key = 0;
         stone::Image image;
         while (!quit && !machine.finished()) {
             SDL_Event event;
@@ -235,6 +261,8 @@ int main(int argc, char** argv) {
             previous = current;
             bool advanced = image.rgb.empty();
             while (clock.next() && !machine.finished()) {
+                for (; next_key < keys.size() && keys[next_key].first <= ticks; ++next_key)
+                    scan = keys[next_key].second;
                 machine.tick(scan);
                 ++ticks;
                 advanced = true;

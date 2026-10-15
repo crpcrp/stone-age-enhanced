@@ -1,10 +1,12 @@
-# Stone Age reconstruction
+# Stone Age Enhanced
 
-A native C++ reconstruction of the 1992 DOS puzzle game **Stone Age**
-(Eclipse), written from its executable. It plays like the original: the same
-screens, controls, timing in 70 Hz ticks, AdLib music and high-score file.
-The source is meant to be read, and a fork can build small enhancements on it.
-It runs on Windows.
+An enhanced version of the 1992 DOS puzzle game **Stone Age** (Eclipse),
+built on a native C++ reconstruction written from its executable. The levels
+play exactly as in the original: the same rules, movement, timing in 70 Hz
+ticks, graphics, AdLib music and high-score file. Around them it adds
+improvements, such as choosing any map already reached instead of typing its
+password. An enhanced mode, on by default and switched in Options, turns
+them all off and gives the original game back. It runs on Windows.
 
 This is an unofficial project, not affiliated with or endorsed by the
 original authors or rights holders.
@@ -21,12 +23,13 @@ original authors or rights holders.
 
 ## How it was checked
 
-The reconstruction was compared with the original executable, run in an
-emulator under the same key presses: every displayed frame and palette, music
-call and score-file write, tick by tick, through the menus, the screens and
-all 100 original levels. The music driver's AdLib register writes were
-compared with the original driver's separately. Those tests need the original
-game and are not part of this repository.
+The reconstruction, with the enhancements off, was compared with the
+original executable, run in an emulator under the same key presses: every
+displayed frame and palette, music call and score-file write, tick by tick,
+through the menus, the screens and all 100 original levels. The music
+driver's AdLib register writes were compared with the original driver's
+separately. Those tests need the original game and are not part of this
+repository.
 
 ## Build
 
@@ -53,6 +56,20 @@ in one folder. [BUILDING.md](BUILDING.md) has more detail.
 - **In a level:** the arrow keys move; Space or Enter selects or works a
   platform; P pauses; Q retries; Esc leaves.
 - **In the menus:** the function keys shown on screen.
+- **Maps (F2):** every map reached so far, 20 to a page. The arrow keys,
+  PgUp/PgDn, Home and End choose one; Enter or Space plays it from there
+  with a new score and five lives. Maps not reached yet show as grey. Tab
+  or P opens the password screen of the original (passwords still work
+  there), Esc goes back.
+- **Options (F5):** F1 enhanced mode, F2 full background, F3 flat stone, F4
+  sound. With enhanced mode off the game is the original's: F2 in the menu
+  is the password screen and no progress is recorded.
+  `stone_play.exe --original` plays one session that way without changing
+  the setting.
+
+The furthest map reached, for each set of levels, and the enhanced-mode
+setting are kept in `STONEAGE.ENH` beside the player; the high scores stay
+in the original's `STONEAGE.HI`.
 
 ## Playing with the original game's content
 

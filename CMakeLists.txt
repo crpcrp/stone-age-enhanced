@@ -33,8 +33,8 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/research/tests/CMakeLists.txt" AND EXISTS "${CMAK
 endif()
 option(STONE_BUILD_TESTS "Build and register the tests in research/tests (needs original_data/)" ${STONE_TESTS_DEFAULT})
 
-set(STONE_CORE_SOURCES src/stone.cpp src/machine.cpp src/game.cpp src/screens.cpp src/video.cpp
-    src/music.cpp src/assets.cpp src/content.cpp src/package.cpp)
+set(STONE_CORE_SOURCES src/stone.cpp src/machine.cpp src/game.cpp src/screens.cpp src/selector.cpp src/video.cpp
+    src/music.cpp src/assets.cpp src/content.cpp src/package.cpp src/settings.cpp)
 add_library(stone_core ${STONE_CORE_SOURCES})
 target_include_directories(stone_core PUBLIC src)
 find_package(Threads REQUIRED) # readable code waits for ticks on a thread (machine.cpp)

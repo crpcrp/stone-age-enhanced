@@ -199,7 +199,7 @@ Game::MenuChoice Game::menu() const {
                 screen.fade_out();
                 switch (key) {
                 case f1: run_game(0); break;
-                case f2: enter_password(); break;
+                case f2: m.enhanced ? map_selector() : enter_password(); break;
                 case f3: show_scores(); break;
                 case f4: jukebox(); break;
                 default: options();
@@ -223,7 +223,7 @@ void Game::draw_menu() const {
     screen.flip();
 }
 
-void Game::run_game(uint8_t first_level) const {
+void Game::run_game(uint8_t first_level, bool counts) const {
     level() = first_level;
     load_sprites();
     new_session();
@@ -231,6 +231,8 @@ void Game::run_game(uint8_t first_level) const {
     show_level_page();
     for (;;) {
         music.play_next();
+        if (counts && m.enhanced) // not original
+            record_level();
         start_level();
         appear();
         const Outcome outcome = play();
@@ -524,6 +526,7 @@ void Game::enter_password() const {
     }
     install_keyboard();
     int found = -1;
+    bool cheat_level = false;
     if (length == 6) {
         const std::string word(typed, typed + 6);
         const auto digit = [&](int n) {
@@ -534,7 +537,8 @@ void Game::enter_password() const {
         else if (cheat_mode() && word.substr(0, 3) == "LVL" && digit(3) <= 9 && digit(4) <= 9 &&
                  digit(5) <= 9)
             found = int(digit(3) * 100 + digit(4) * 10 + digit(5)) - 1;
-        if (found < 0 || found >= 100) {
+        cheat_level = found >= 0 && found < 100;
+        if (!cheat_level) {
             found = -1;
             for (int level = 0; level < 100 && found < 0; ++level) {
                 level_password(uint8_t(level));
@@ -544,8 +548,8 @@ void Game::enter_password() const {
         }
     }
     screen.fade_out();
-    if (found >= 0)
-        run_game(uint8_t(found));
+    if (found >= 0) // not original: a level chosen by LVLnnn is not progress
+        run_game(uint8_t(found), !cheat_level);
 }
 
 void Game::toggle_cheat_mode() const {
@@ -866,25 +870,19 @@ void Game::options() const {
     screen.fade_in();
     for (;;) {
         const uint8_t key = wait_for_next_key();
-        if (key == f1)
-            full_background() ^= 0xff;
+        if (key == f1) // not original: the original's F1-F3 follow as F2-F4
+            set_enhanced(!m.enhanced);
         else if (key == f2)
+            full_background() ^= 0xff;
+        else if (key == f3)
             flat_stone() ^= 0xff;
-        else if (key == f3) {
+        else if (key == f4) {
             adlib_enabled() ^= 0xff;
             song_ticks() = 0;
             if (!adlib_enabled())
                 music.stop();
             current_song() = 0xff;
             music.play_next();
-        } else if (key == f4) {
-            if (!brightness())
-                continue;
-            brightness() = brightness() - 1;
-        } else if (key == f5) {
-            if (brightness() >= 9)
-                continue;
-            brightness() = brightness() + 1;
         } else if (key == f10)
             break;
         draw_options();
@@ -892,17 +890,62 @@ void Game::options() const {
     screen.fade_out();
 }
 
+// Not original. The picture's lines F1-F5 are covered with the commonest
+// colour under them, and four lines take their place, 17 pixels apart as
+// the original's: in the 8x16 font of the asset set, in the colour the
+// picture's lines use most, each with its ON or OFF sprite. F10 stays as
+// the picture has it.
 void Game::draw_options() const {
-    const auto draw_switch = [&](bool on, unsigned y) {
-        screen.draw_sprite(on ? 10 : 11, on ? 217 : 214, y);
+    const unsigned left = 88, top = 62, width = 124, height = 86;
+    const uint8_t* const picture = m.at(picture_buffer()[1], 0);
+    const uint8_t* const palette = picture + 320 * 200;
+    unsigned uses[256] = {}, bright[256] = {};
+    for (unsigned y = top; y < top + height; ++y)
+        for (unsigned x = left; x < left + width; ++x) {
+            const uint8_t colour = picture[y * 320 + x];
+            ++uses[colour];
+            if (palette[3 * colour] + palette[3 * colour + 1] + palette[3 * colour + 2] >= 60)
+                ++bright[colour]; // the letters, not the dark background
+        }
+    const auto commonest = [](const unsigned* counts) {
+        return uint8_t(std::max_element(counts, counts + 256) - counts);
     };
     screen.restore_page();
-    draw_switch(full_background(), 66);
+    screen.fill(left, top, width, height, commonest(uses));
+    unpack(font_resource(), work_buffer());
+    const uint8_t colour = text_colour();
+    text_colour() = commonest(bright);
     floor_tile() = flat_stone() ? 'q' : 'B';
-    draw_switch(flat_stone(), 83);
-    draw_switch(adlib_enabled(), 100);
-    screen.draw_sprite(uint8_t(brightness()), 221, 125);
+    const char* const labels[] = {"F1. ENHANCED", "F2. FULL BACK", "F3. FLAT STONE",
+                                  "F4. ADLIB SOUND"};
+    const bool on[] = {m.enhanced, full_background() != 0, flat_stone() != 0,
+                       adlib_enabled() != 0};
+    for (unsigned n = 0; n < 4; ++n) {
+        screen.move_to(91, 64 + 17 * n);
+        screen.write(reinterpret_cast<const uint8_t*>(labels[n]));
+        screen.draw_sprite(on[n] ? 10 : 11, on[n] ? 217 : 214, 66 + 17 * n);
+    }
+    text_colour() = colour;
     screen.flip();
+}
+
+void Game::set_enhanced(bool on) const {
+    m.enhanced = on;
+    Settings settings = load_settings();
+    settings.set_enhanced(on);
+    save_settings(settings);
+}
+
+Settings Game::load_settings() const {
+    Bytes file;
+    if (!m.load_file || !m.load_file(Settings::file_name, file))
+        file.clear(); // none yet: every setting as by default
+    return Settings(file);
+}
+
+void Game::save_settings(const Settings& settings) const {
+    if (m.save_file)
+        m.save_file(Settings::file_name, settings.bytes());
 }
 
 // --- Credits ---

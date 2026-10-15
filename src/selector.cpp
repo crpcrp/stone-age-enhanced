@@ -1,0 +1,327 @@
+// The map selector (ENHANCEMENTS.md, E1). Not original: enhanced mode only,
+// in place of the password screen on F2 in the menu. All 100 maps, 20 to a
+// page, as miniatures of their boards; the ones never reached are a grey
+// "unknown" map. Progress is kept in STONEAGE.ENH, one line per level set.
+#include "game.hpp"
+#include <algorithm>
+#include <array>
+#include <string>
+#include <vector>
+
+namespace stone {
+namespace {
+// Scan codes.
+const uint8_t esc = 0x01, tab = 0x0f, key_p = 0x19, enter = 0x1c, space = 0x39, home = 0x47,
+              arrow_up = 0x48, page_up = 0x49, arrow_left = 0x4b, arrow_right = 0x4d,
+              end_key = 0x4f, arrow_down = 0x50, page_down = 0x51;
+const unsigned maps = 100, per_page = 20, per_row = 5, pages = maps / per_page;
+// A thumbnail is the 20x11 board at three pixels a cell.
+const unsigned thumb_width = 3 * Board::columns, thumb_height = 3 * Board::rows;
+// The selector's own palette (the menu screens use 0-63 only).
+const uint8_t text_slot = 1, dim_slot = 2, theme_slots = 64, shade_slots = 144,
+              highlight_slot = 149, grey_slots = 150;
+// A board cell of each tile, sampled at these pixels of each axis.
+const unsigned samples[3] = {2, 7, 12};
+
+unsigned thumb_x(unsigned map) { return 8 + 62 * (map % per_row); }
+unsigned thumb_y(unsigned map) { return 22 + 44 * (map % per_page / per_row); }
+
+class MapSelector {
+public:
+    explicit MapSelector(const Game& game) : g(game), screen(game.screen) {}
+    void run();
+
+private:
+    void gather();
+    void build_palette();
+    void fade(bool in);
+    // A page with the cursor on `map`, onto the page being drawn; the
+    // highlight frame `shift` pixels to the side.
+    void draw(unsigned map, int shift = 0);
+    void draw_thumbnail(uint8_t* pixels, unsigned map) const;
+    void draw_unknown(uint8_t* pixels, unsigned map) const;
+    void write(unsigned x, unsigned y, const std::string& text) const;
+    // From the page of `from` to the page of `to`, 40 pixels a tick.
+    void slide(unsigned from, unsigned to);
+    void shake(unsigned map);
+    bool reached(unsigned map) const { return map < furthest; }
+
+    const Game& g;
+    const Screen& screen;
+    std::vector<uint8_t> boards; // 220 tiles a map
+    uint8_t themes[maps] = {};
+    uint8_t tile_pixels[5][40][9] = {}; // [theme][sprite][column * 3 + row]
+    std::array<uint8_t, 768> palette{};
+    unsigned furthest = 1; // 1-100
+};
+
+void MapSelector::run() {
+    screen.set_layout(false);
+    gather();
+    build_palette();
+    unsigned cursor = furthest - 1;
+    draw(cursor);
+    screen.flip();
+    fade(true);
+    g.read_scan();
+    for (unsigned ticks = 0;;) {
+        screen.wait(1);
+        g.music.tick();
+        if (++ticks % 16 == 0) { // the frame pulses
+            const uint8_t level = ticks / 16 % 2 ? 40 : 63;
+            std::fill_n(&palette[3 * highlight_slot], 3, level);
+            screen.set_colours(palette.data(), highlight_slot, highlight_slot);
+        }
+        const uint8_t key = g.read_scan();
+        if (!g.scan_change() || key >= 0x80)
+            continue;
+        int to = int(cursor);
+        switch (key) {
+        case arrow_left: to -= 1; break;
+        case arrow_right: to += 1; break;
+        case arrow_up: to -= per_row; break;
+        case arrow_down: to += per_row; break;
+        case page_up: to -= per_page; break;
+        case page_down: to += per_page; break;
+        case home: to = 0; break;
+        case end_key: to = int(furthest) - 1; break;
+        case enter:
+        case space:
+            if (!reached(cursor)) {
+                shake(cursor);
+                continue;
+            }
+            fade(false);
+            g.run_game(uint8_t(cursor)); // as a password start
+            return;
+        case tab:
+        case key_p:
+            fade(false);
+            g.enter_password();
+            return;
+        case esc: fade(false); return;
+        default: continue;
+        }
+        to = std::min(std::max(to, 0), int(maps) - 1);
+        if (unsigned(to) / per_page != cursor / per_page)
+            slide(cursor, unsigned(to));
+        cursor = unsigned(to);
+        draw(cursor);
+        screen.flip();
+    }
+}
+
+// The level records, as load_level (CS:0ef2) reads them, the tiles of the
+// five themes, and how far this level set has been played.
+void MapSelector::gather() {
+    furthest = g.load_settings().reached(g.level_set());
+    const uint8_t* const records = g.far(g.work_buffer());
+    const unsigned size = g.level_record_size();
+    boards.resize(maps * Board::columns * Board::rows);
+    for (unsigned map = 0; map < maps; ++map) {
+        const uint8_t theme = uint8_t(records[map * size + 3] - '0');
+        themes[map] = theme < 5 ? theme : 3;
+        std::copy_n(records + map * size + 7, Board::columns * Board::rows,
+                    &boards[map * Board::columns * Board::rows]);
+    }
+    // A theme's tiles are the first 40 sprites (CS:0fe9), column by column.
+    const uint8_t* const sprite_records = g.far(g.sprite_records());
+    for (unsigned theme = 0; theme < 5; ++theme) {
+        g.unpack_at(g.theme_sheet_segments()[theme], g.sprite_pixels()[1]);
+        for (unsigned sprite = 0; sprite < 40; ++sprite) {
+            const uint8_t* const record = sprite_records + 4 * sprite;
+            const unsigned width = record[2] ? record[2] : 256, height = record[3] ? record[3] : 256;
+            const uint8_t* const pixels = g.far(g.sprite_pixels()) + (record[0] | record[1] << 8);
+            for (unsigned x = 0; x < 3; ++x)
+                for (unsigned y = 0; y < 3; ++y)
+                    if (samples[x] < width && samples[y] < height)
+                        tile_pixels[theme][sprite][x * 3 + y] =
+                            pixels[samples[x] * height + samples[y]];
+        }
+    }
+}
+
+void MapSelector::build_palette() {
+    const auto set = [&](unsigned slot, uint8_t red, uint8_t green, uint8_t blue) {
+        palette[3 * slot] = red;
+        palette[3 * slot + 1] = green;
+        palette[3 * slot + 2] = blue;
+    };
+    set(text_slot, 63, 56, 36);
+    set(dim_slot, 22, 20, 16);
+    for (unsigned theme = 0; theme < 5; ++theme) {
+        const uint8_t* const colours = g.theme_palettes() + theme * 48;
+        std::copy_n(colours, 48, &palette[3 * (theme_slots + 16 * theme)]);
+        // The darkest background shade of its colour 14 that background set
+        // A uses (colour 33), as a level makes it (CS:1938).
+        for (unsigned part = 0; part < 3; ++part) {
+            const unsigned scaled = uint16_t(colours[14 * 3 + part] * g.shade_factors()[6]);
+            palette[3 * (shade_slots + theme) + part] =
+                uint8_t(std::min(scaled * g.brightness() >> 8 & 255, 63u));
+        }
+    }
+    set(highlight_slot, 63, 63, 63);
+    for (unsigned n = 0; n < 8; ++n)
+        set(grey_slots + n, uint8_t(10 + 5 * n), uint8_t(10 + 5 * n), uint8_t(10 + 5 * n));
+    set(255, 63, 63, 63); // 254 stays black
+}
+
+// As fade_in and fade_out (CS:18b6, 18c5), but all 256 colours.
+void MapSelector::fade(bool in) {
+    std::array<uint8_t, 768> shown;
+    for (unsigned step = 0; step <= 64; ++step) {
+        const unsigned level = in ? 4 * step : 256 - 4 * step;
+        for (unsigned n = 0; n < 768; ++n)
+            shown[n] = uint8_t(palette[n] * level >> 8);
+        screen.wait(1);
+        screen.set_colours(shown.data(), 0, 255);
+    }
+}
+
+void MapSelector::draw(unsigned cursor, int shift) {
+    const unsigned first = cursor / per_page * per_page;
+    uint8_t* const pixels = screen.work_buffer();
+    std::fill_n(pixels, 320 * 200, uint8_t(0));
+    for (unsigned map = first; map < first + per_page; ++map)
+        if (reached(map))
+            draw_thumbnail(pixels, map);
+        else
+            draw_unknown(pixels, map);
+    screen.show_picture();
+    // Text over it, in the 8x16 font of the asset set.
+    g.unpack(g.font_resource(), g.work_buffer());
+    const uint8_t colour = g.text_colour();
+    g.text_colour() = text_slot;
+    write(8, 2, "SELECT MAP");
+    const std::string number = "MAP " + std::to_string(cursor + 1);
+    write(258 - 8 * unsigned(number.size()), 2, number);
+    g.text_colour() = grey_slots + 7;
+    for (unsigned map = first; map < first + per_page; ++map)
+        if (!reached(map))
+            write(thumb_x(map) + 26, thumb_y(map) + 9, "?");
+    g.text_colour() = colour;
+    for (unsigned page = 0; page < pages; ++page) {
+        const unsigned x = 268 + 10 * page;
+        if (page == cursor / per_page)
+            screen.fill(x, 7, 6, 6, text_slot);
+        else {
+            screen.fill(x, 7, 6, 6, dim_slot);
+            screen.fill(x + 1, 8, 4, 4, 0);
+        }
+    }
+    // The number under each thumbnail, in the digits of the status bar.
+    for (unsigned map = first; map < first + per_page; ++map) {
+        const std::string digits = std::to_string(map + 1);
+        const unsigned x = thumb_x(map) + thumb_width / 2 - 4 * unsigned(digits.size());
+        for (unsigned n = 0; n < digits.size(); ++n)
+            screen.draw_sprite(uint8_t(0x7c + digits[n] - '0'), x + 8 * n, thumb_y(map) + 35);
+    }
+    const unsigned x = unsigned(int(thumb_x(cursor)) - 2 + shift), y = thumb_y(cursor) - 2;
+    screen.fill(x, y, thumb_width + 4, 2, highlight_slot);
+    screen.fill(x, y + thumb_height + 2, thumb_width + 4, 2, highlight_slot);
+    screen.fill(x, y + 2, 2, thumb_height, highlight_slot);
+    screen.fill(x + thumb_width + 2, y + 2, 2, thumb_height, highlight_slot);
+}
+
+// Each cell three by three pixels of its tile in the map's theme. What is
+// transparent shows a dark shade of the theme, like the level's background.
+void MapSelector::draw_thumbnail(uint8_t* pixels, unsigned map) const {
+    const unsigned theme = themes[map];
+    const uint8_t* const board = &boards[map * Board::columns * Board::rows];
+    uint8_t* const corner = pixels + thumb_y(map) * 320 + thumb_x(map);
+    for (unsigned row = 0; row < Board::rows; ++row)
+        for (unsigned column = 0; column < Board::columns; ++column) {
+            uint8_t tile = board[row * Board::columns + column];
+            if (tile == 'a' && g.full_background() >= 0x80) // as Board::draw
+                tile = 'A';
+            const uint8_t sprite = g.tile_sprite(tile);
+            for (unsigned x = 0; x < 3; ++x)
+                for (unsigned y = 0; y < 3; ++y) {
+                    const uint8_t pixel = sprite < 40 ? tile_pixels[theme][sprite][x * 3 + y] : 0;
+                    corner[(3 * row + y) * 320 + 3 * column + x] =
+                        pixel == 0    ? uint8_t(shade_slots + theme)
+                        : pixel < 16  ? uint8_t(theme_slots + 16 * theme + pixel)
+                                      : pixel;
+                }
+        }
+}
+
+// Grey ground with a few grey rocks of three by three cells, placed from the
+// map's number left and right of the middle, where a ? is written later.
+void MapSelector::draw_unknown(uint8_t* pixels, unsigned map) const {
+    uint8_t* const corner = pixels + thumb_y(map) * 320 + thumb_x(map);
+    for (unsigned y = 0; y < thumb_height; ++y)
+        std::fill_n(corner + y * 320, thumb_width, uint8_t(grey_slots + 1));
+    uint32_t seed = map * 2654435761u + 12345;
+    const auto next = [&](unsigned limit) {
+        seed = seed * 1103515245u + 12345;
+        return unsigned(seed >> 16) % limit;
+    };
+    for (unsigned rock = 0, rocks = 2 + next(3); rock < rocks; ++rock) {
+        const unsigned column = next(12), left = 3 * (column < 6 ? column : column + 6),
+                       top = 3 * next(Board::rows - 2);
+        for (unsigned y = 0; y < 9; ++y)
+            for (unsigned x = 0; x < 9; ++x)
+                corner[(top + y) * 320 + left + x] =
+                    uint8_t(grey_slots + (x == 0 || y == 0 ? 5 : x == 8 || y == 8 ? 2 : 3));
+    }
+}
+
+void MapSelector::write(unsigned x, unsigned y, const std::string& text) const {
+    screen.move_to(x, y);
+    for (const char character : text)
+        screen.write(uint8_t(character));
+}
+
+// Both pages side by side, 640 pixels wide; the view slides from one to the
+// other in eight ticks. Keys pressed meanwhile are read after it.
+void MapSelector::slide(unsigned from, unsigned to) {
+    const bool forward = to > from;
+    std::vector<uint8_t> both(640 * 200);
+    for (const unsigned map : {from, to}) {
+        draw(map);
+        screen.get_pixels(g.draw_page(), g.page_bytes());
+        const unsigned left = (map == to) == forward ? 320 : 0;
+        for (unsigned y = 0; y < 200; ++y)
+            std::copy_n(screen.work_buffer() + y * 320, 320, &both[y * 640 + left]);
+    }
+    for (unsigned step = 1; step <= 8; ++step) {
+        const unsigned left = forward ? 40 * step : 320 - 40 * step;
+        for (unsigned y = 0; y < 200; ++y)
+            std::copy_n(&both[y * 640 + left], 320, screen.work_buffer() + y * 320);
+        screen.show_picture();
+        screen.flip();
+        screen.wait(1);
+        g.music.tick();
+    }
+}
+
+// Enter on a map not reached: the frame shakes.
+void MapSelector::shake(unsigned map) {
+    for (const int shift : {3, -3, 2, -2, 1, -1, 0}) {
+        draw(map, shift);
+        screen.flip();
+        for (unsigned tick = 0; tick < 2; ++tick) {
+            screen.wait(1);
+            g.music.tick();
+        }
+    }
+}
+} // namespace
+
+void Game::map_selector() const { MapSelector(*this).run(); }
+
+uint32_t Game::level_set() const {
+    unpack(levels_resource(), work_buffer());
+    return crc32(far(work_buffer()), maps * level_record_size());
+}
+
+void Game::record_level() const {
+    const uint32_t set = level_set();
+    Settings settings = load_settings();
+    if (level() + 1u <= settings.reached(set))
+        return;
+    settings.set_reached(set, level() + 1u);
+    save_settings(settings);
+}
+} // namespace stone

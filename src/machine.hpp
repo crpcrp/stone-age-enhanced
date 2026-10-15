@@ -70,6 +70,9 @@ public:
     std::function<bool(const std::string&, Bytes&)> load_file;
     std::function<void(const std::string&, const Bytes&)> save_file;
     unsigned seconds = 0; // DOS clock seconds read once at startup (RNG seed)
+    // Enhanced mode (ENHANCEMENTS.md, E0): off, the game is the original's.
+    // The player turns it on from the saved setting; the tests leave it off.
+    bool enhanced = false;
     // While the game has its INT 9 handler removed (password and name entry)
     // it reads characters through DOS instead of scan bytes. Extended keys
     // arrive as 0 followed by the scan code, as DOS delivers them.

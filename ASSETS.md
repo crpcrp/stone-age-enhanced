@@ -48,7 +48,7 @@ of a tile is its letter: `A`-`T` are 0-19, `a`-`t` are 20-39 (`CS:1bad`).
 | Tile | Picture |
 |---|---|
 | `A` (0) | Empty space: leave it transparent |
-| `B` (1) | Flat floor, used when Options F2 is on |
+| `B` (1) | Flat floor, used when Options F3 (flat stone) is on |
 | `C D E F` | Platform going up, down, right, left |
 | `G H I` | Platform going up/down, left/right, all four ways |
 | `J K L` | Hourglass, cracked floor, wall |
@@ -103,13 +103,18 @@ Sprites 181-184 use the title screen's colours.
 
 | File | Shown | The game draws on it |
 |---|---|---|
-| `screen_title` | Menu | Sprites 181-184 as above. The menu text is part of the picture |
-| `screen_password` | F2 | Six 16x16 letters from (135,83): `password/00` is the empty cell, `01..26` are A-Z; their background is slot 254 |
-| `screen_options` | F5 | `options/10` (ON) or `11` (OFF) at (214,66), (214,83), (214,100); a digit `options/00..09` at (221,125) |
+| `screen_title` | Menu | Sprites 181-184 as above. The menu text is part of the picture; the free one names F2 "MAPS", the map selector of enhanced mode |
+| `screen_password` | F2 (Tab in the map selector) | Six 16x16 letters from (135,83): `password/00` is the empty cell, `01..26` are A-Z; their background is slot 254 |
+| `screen_options` | F5 | The picture's lines F1-F5 (88-211, 62-147) are covered with their commonest colour and four lines written over them in `font.bmp`, 17 pixels apart from y=64, in the colour the picture's lines use most: F1 enhanced mode, F2 full background, F3 flat stone, F4 sound, each with `options/10` (ON) at x=217 or `11` (OFF) at x=214. The F10 line stays as drawn |
 | `screen_jukebox` | F4 | Song list from (72,61), eight lines of 8 pixels; the playlist at y=147; help below. Glyphs `jukebox/000..049` and `050..099` alternate by line: A-Z, then `. , " -` space space `! ? ( ' : ;`, 0-9 and two spare (`CS:2e1a`) |
 | `screen_scores` | F3, name entry | Text in `font.bmp` from (32,7), 14 pixels a line, in slot 15, which the game makes red; `birds/0..6` (black, slot 254) fly across |
 | `screen_credits` | C, victory | White text (slot 15) scrolls through x=80..239 |
 | `screen_eclipse`, `screen_dinosaur`, `screen_bones_park` | Attract sequence | Nothing. The file names are the original's; the free set shows a fossil discovery, a stepping-stone valley and cave paintings |
+
+The map selector (F2 in enhanced mode) has no picture of its own: it draws
+miniatures of the levels from `tiles_1..5.bmp` (pixels 2, 7 and 12 of each
+tile, in the theme's `[tiles_n]` colours), writes in `font.bmp` and numbers
+the maps with the status-bar digits, sprites 124-133.
 
 `font.bmp`, 128x128: 128 characters of 8x16 from code 32, sixteen a row;
 codes 128-159 are the accented letters of code page 437. Any non-zero pixel
