@@ -117,6 +117,12 @@ original game and are not part of this repository. With them in `research/` and 
 original files in `original_data/`, `.\build.ps1 -Test` (or the `test`
 presets) builds and runs them.
 
+In Claude Code cloud sessions, `.claude/hooks/session-start.sh` builds the
+player without a display (SDL for the console only, in
+`build/cmake-headless`) and sets SDL's off-screen video and dummy audio
+drivers, so scripted runs (`--keys`, `--ticks`, `--screenshot`) and
+`stone_tests` work there.
+
 ## Limits
 
 Non-Windows builds have not been verified.
