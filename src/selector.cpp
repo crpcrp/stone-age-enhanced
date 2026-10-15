@@ -1,7 +1,9 @@
-// The map selector (ENHANCEMENTS.md, E1 and E2). Not original: enhanced mode
+// The map selector (ENHANCEMENTS.md, E1 to E3). Not original: enhanced mode
 // only, in place of the password screen on F2 in the menu. All 100 maps, 20
 // to a page, as miniatures of their boards; the ones never reached are a grey
-// "unknown" map. Progress is kept in STONEAGE.ENH, one line per level set.
+// "unknown" map, the cleared ones have a mark, and the header shows the best
+// time and points of the map under the cursor. Progress is kept in
+// STONEAGE.ENH, one line per level set and one per cleared map.
 #include "game.hpp"
 #include <algorithm>
 #include <array>
@@ -18,7 +20,7 @@ const unsigned maps = 100, per_page = 20, per_row = 5, pages = maps / per_page;
 // A thumbnail is the 20x11 board at three pixels a cell.
 const unsigned thumb_width = 3 * Board::columns, thumb_height = 3 * Board::rows;
 // The selector's own palette (the menu screens use 0-63 only).
-const uint8_t text_slot = 1, dim_slot = 2, theme_slots = 64, shade_slots = 144,
+const uint8_t text_slot = 1, dim_slot = 2, mark_slot = 3, theme_slots = 64, shade_slots = 144,
               highlight_slot = 149, grey_slots = 150;
 // A board cell of each tile, sampled at these pixels of each axis.
 const unsigned samples[3] = {2, 7, 12};
@@ -40,6 +42,8 @@ private:
     void draw(unsigned map, int shift = 0);
     void draw_thumbnail(uint8_t* pixels, unsigned map) const;
     void draw_unknown(uint8_t* pixels, unsigned map) const;
+    // A cleared map: a triangle in the miniature's top-right corner (E3).
+    void draw_mark(uint8_t* pixels, unsigned map) const;
     void write(unsigned x, unsigned y, const std::string& text) const;
     // From the page of `from` to the page of `to`, 40 pixels a tick.
     void slide(unsigned from, unsigned to);
@@ -54,7 +58,14 @@ private:
     std::array<uint8_t, 768> palette{};
     unsigned furthest = 1; // 1-100
     unsigned last = 0;     // 1-100, 0 for none
+    Settings::Best bests[maps];
 };
+
+// Ticks of 70 a second as seconds and tenths: 2891 is "41.3".
+std::string seconds(unsigned ticks) {
+    const unsigned tenths = (ticks + 3) / 7;
+    return std::to_string(tenths / 10) + '.' + std::to_string(tenths % 10);
+}
 
 void MapSelector::run() {
     screen.set_layout(false);
@@ -120,6 +131,8 @@ void MapSelector::gather() {
     const uint32_t set = g.level_set();
     furthest = settings.reached(set);
     last = settings.last(set);
+    for (unsigned map = 0; map < maps; ++map)
+        bests[map] = settings.best(set, map + 1);
     const uint8_t* const records = g.far(g.work_buffer());
     const unsigned size = g.level_record_size();
     boards.resize(maps * Board::columns * Board::rows);
@@ -154,6 +167,7 @@ void MapSelector::build_palette() {
     };
     set(text_slot, 63, 56, 36);
     set(dim_slot, 22, 20, 16);
+    set(mark_slot, 63, 50, 10);
     for (unsigned theme = 0; theme < 5; ++theme) {
         const uint8_t* const colours = g.theme_palettes() + theme * 48;
         std::copy_n(colours, 48, &palette[3 * (theme_slots + 16 * theme)]);
@@ -188,18 +202,23 @@ void MapSelector::draw(unsigned cursor, int shift) {
     uint8_t* const pixels = screen.work_buffer();
     std::fill_n(pixels, 320 * 200, uint8_t(0));
     for (unsigned map = first; map < first + per_page; ++map)
-        if (reached(map))
+        if (reached(map)) {
             draw_thumbnail(pixels, map);
-        else
+            if (bests[map].cleared())
+                draw_mark(pixels, map);
+        } else
             draw_unknown(pixels, map);
     screen.show_picture();
     // Text over it, in the 8x16 font of the asset set.
     g.unpack(g.font_resource(), g.work_buffer());
     const uint8_t colour = g.text_colour();
     g.text_colour() = text_slot;
-    write(8, 2, "SELECT MAP");
-    const std::string number = "MAP " + std::to_string(cursor + 1);
-    write(258 - 8 * unsigned(number.size()), 2, number);
+    // The map and its bests (E3): MAP 12  41.3s  1250.
+    std::string header = "MAP " + std::to_string(cursor + 1);
+    if (bests[cursor].cleared())
+        header += "  " + seconds(bests[cursor].ticks) + "s  " +
+                  std::to_string(bests[cursor].points);
+    write(8, 2, header);
     g.text_colour() = grey_slots + 7;
     for (unsigned map = first; map < first + per_page; ++map)
         if (!reached(map))
@@ -272,6 +291,14 @@ void MapSelector::draw_unknown(uint8_t* pixels, unsigned map) const {
     }
 }
 
+void MapSelector::draw_mark(uint8_t* pixels, unsigned map) const {
+    const unsigned size = 7, right = thumb_x(map) + thumb_width - 1;
+    for (unsigned y = 0; y < size; ++y)
+        for (unsigned x = 0; x < size - y; ++x)
+            pixels[(thumb_y(map) + y) * 320 + right - x] =
+                x == size - 1 - y ? uint8_t(254) : mark_slot; // a black edge
+}
+
 void MapSelector::write(unsigned x, unsigned y, const std::string& text) const {
     screen.move_to(x, y);
     for (const char character : text)
@@ -331,5 +358,24 @@ void Game::record_level() const {
         settings.set_reached(set, started);
     settings.set_last(set, started); // E2
     save_settings(settings);
+}
+
+unsigned Game::score_value() const {
+    unsigned value = 0;
+    for (int n = 5; n >= 0; --n)
+        value = value * 10 + score()[n] % 10;
+    return value;
+}
+
+unsigned Game::record_best() const {
+    if (!m.timing)
+        return 0;
+    // The score has six digits and goes round past 999,999.
+    const unsigned points = (score_value() + 1000000 - m.level_score) % 1000000;
+    Settings settings = load_settings();
+    const unsigned improved = settings.improve_best(level_set(), level(), m.level_ticks, points);
+    if (improved)
+        save_settings(settings);
+    return improved;
 }
 } // namespace stone

@@ -3,8 +3,8 @@
 What the enhanced game adds to the original, and the plan for what comes
 next. The code refers to the entries here by number (`ENHANCEMENTS.md, E1`).
 
-- **E0 to E2** are done.
-- **E3 to E9** are planned. Their order below is the order of work: each
+- **E0 to E3** are done.
+- **E4 to E9** are planned. Their order below is the order of work: each
   one builds on those before it.
 
 ## Rules for every enhancement
@@ -71,7 +71,7 @@ scripted run keeps `STONEAGE.ENH` in memory, reading the saved file once at
 its start and never writing it. `stone_tests` (`tests/`) checks the new
 lines.
 
-## E3: best time and best score for each map
+## E3: best time and best score for each map (done)
 
 **What.** The game records your best result on every map you have cleared
 and shows it in the map selector.
@@ -105,6 +105,19 @@ after the completed page), `settings.{hpp,cpp}`, `selector.cpp`.
 
 **Done when** the bests survive a restart, are only ever improved, and are
 not recorded for cheat or `LVLnnn` games.
+
+**As built.** `Machine` holds `timing`, `level_ticks` and `level_score`.
+`run_game` sets them as each level starts: `timing` is off for `LVLnnn`
+starts and whenever MAYDAY is on. `begin_tick()` counts every tick, and
+`run_game` zeroes the count once `appear()` is over. `record_best()`
+(`selector.cpp`) runs after `award_bonus()`, on the completed page or
+before the victory credits after level 100; `Settings::improve_best` keeps
+the fewer ticks and the more points and says which it beat. The page's
+line, at y=71 between the lives and the quote, reads `NEW BEST TIME`,
+`NEW BEST SCORE` or `NEW BEST TIME, SCORE`. The selector rounds ticks to
+tenths of a second at 70 ticks a second, and marks a cleared map with a
+yellow triangle. The score's six digits go round past 999,999, and the
+points are counted round with them. `stone_tests` checks the `best` lines.
 
 ## E4: statistics
 

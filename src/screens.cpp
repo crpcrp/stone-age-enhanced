@@ -2,7 +2,9 @@
 // screens, the pages between levels, music.
 #include "game.hpp"
 #include <algorithm>
+#include <cstring>
 #include <string>
+#include <vector>
 
 namespace stone {
 namespace {
@@ -233,14 +235,18 @@ void Game::run_game(uint8_t first_level, bool counts) const {
         music.play_next();
         if (counts && m.enhanced) // not original
             record_level();
+        m.timing = counts && m.enhanced && !cheat_mode(); // E3, rule 6
+        m.level_score = score_value();
         start_level();
         appear();
+        m.level_ticks = 0;
         const Outcome outcome = play();
         if (outcome == completed) {
             walk_out();
             screen.wipe(false);
             if (++level() == 100) {
                 award_bonus();
+                record_best();
                 victory_credits();
                 return;
             }
@@ -321,6 +327,7 @@ void Game::show_game_over_page() const {
 void Game::show_completed_page() const {
     begin_page();
     award_bonus();
+    const unsigned improved = record_best(); // not original (E3)
     for (int n = 0; n < 6; ++n)
         completed_score()[5 - n] = score()[n] + digit_glyph;
     std::copy_n(lives() == 1 ? lives_phrase_single() : lives_phrase_plural(), 15,
@@ -329,12 +336,30 @@ void Game::show_completed_page() const {
     number_to_glyphs(level() + 1); // the level that comes now
     std::copy_n(number_glyphs(), 3, completed_level());
     draw_page_text(completed_page());
+    draw_best_line(improved);
     draw_page_text(&m.data(quote_pointers()[random(4)]));
     level_password(level());
     for (int pair = 0; pair < 3; ++pair) // letters to glyphs, two at a time
         Word{password_line_glyphs()}[pair] = Word{text()}[pair] - 0x4141;
     draw_page_text(password_line());
     end_page(490);
+}
+
+void Game::draw_best_line(unsigned improved) const {
+    if (!improved)
+        return;
+    const std::string line = improved == (Settings::faster | Settings::higher)
+                                 ? "NEW BEST TIME, SCORE"
+                             : improved == Settings::faster ? "NEW BEST TIME"
+                                                            : "NEW BEST SCORE";
+    // A record of draw_page_text, centred between the lives and the quote.
+    const char letters[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#$?!%.:,][ ";
+    const unsigned x = (320 - 16 * unsigned(line.size())) / 2;
+    std::vector<uint8_t> record = {uint8_t(x), uint8_t(x >> 8), 71};
+    for (const char character : line)
+        record.push_back(uint8_t(std::strchr(letters, character) - letters));
+    record.push_back(0xff);
+    draw_page_text(record.data());
 }
 
 void Game::award_bonus() const {

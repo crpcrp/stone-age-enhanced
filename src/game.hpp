@@ -294,7 +294,9 @@ struct Game : GameNames {
     // CS:0010. A game from this level until all lives are lost, Esc, or
     // the last level is completed. Not original: in enhanced mode each level
     // started is recorded as reached and as the last started, unless `counts`
-    // is false (a start by LVLnnn, ENHANCEMENTS.md E1 and E2).
+    // is false (a start by LVLnnn, ENHANCEMENTS.md E1 and E2); each level
+    // completed may set a best, unless `counts` is false or MAYDAY was
+    // typed (E3).
     void run_game(uint8_t first_level, bool counts = true) const;
     // CS:0ed7. No points, five lives.
     void new_session() const;
@@ -374,6 +376,13 @@ struct Game : GameNames {
     // Level level() + 1 started: saved as the last one started (E2), and as
     // reached if it is further than that.
     void record_level() const;
+    // The level just completed, its bonus awarded, is level() (1-100), as
+    // run_game has counted on to the next: its ticks and points saved where
+    // they beat its best (E3). Which ones did, as
+    // Settings::improve_best returns; 0 when the level is not timed.
+    unsigned record_best() const;
+    // The score as a number.
+    unsigned score_value() const;
     // CS:30f5. Text scrolling up over a picture, a pixel every three ticks,
     // until its end or a key. CS:30b7 before the game, with two names in an
     // order left to chance; CS:30a9 after the last level.
@@ -395,6 +404,9 @@ struct Game : GameNames {
     // CS:0bcc. Records of x, y and glyphs: 7Fh starts the next record, a
     // byte from 80h up ends the text.
     void draw_page_text(const uint8_t* text) const;
+    // Not original (E3): a line under the lives on the completed page
+    // naming the bests the level beat, `improved` as record_best returns.
+    void draw_best_line(unsigned improved) const;
     // CS:0a31. Seven points a second left (a quarter of it with LIGHT) and
     // ten a level, counted up one by one; a life at every 6,000 points.
     void award_bonus() const;

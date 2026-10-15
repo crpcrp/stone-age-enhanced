@@ -310,6 +310,7 @@ void Game::animate_player(const uint8_t* sprites, int frames, unsigned ticks) co
 }
 
 bool Game::begin_tick() const {
+    ++m.level_ticks; // not original (ENHANCEMENTS.md, E3)
     if (song_ticks()) // CS:1f23: the time until the next song of the playlist
         song_ticks() = song_ticks() - 1;
     const bool time_left = clock.tick();
