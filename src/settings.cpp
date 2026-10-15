@@ -47,24 +47,35 @@ void Settings::set_original(Part part, bool on) {
 }
 
 namespace {
-std::string reached_key(uint32_t levels) {
-    char key[20];
-    std::snprintf(key, sizeof key, "reached %08x", unsigned(levels));
-    return key;
+std::string level_key(const char* key, uint32_t levels) {
+    char text[24];
+    std::snprintf(text, sizeof text, "%s %08x", key, unsigned(levels));
+    return text;
 }
 } // namespace
 
-unsigned Settings::reached(uint32_t levels) const {
+unsigned Settings::level(const char* key, uint32_t levels) const {
     std::string value;
-    if (!find(reached_key(levels), value) || value.empty() || value.size() > 3 ||
+    if (!find(level_key(key, levels), value) || value.empty() || value.size() > 3 ||
         value.find_first_not_of("0123456789") != std::string::npos)
-        return 1;
+        return 0;
     const unsigned level = unsigned(std::stoul(value));
-    return level >= 1 && level <= 100 ? level : 1;
+    return level >= 1 && level <= 100 ? level : 0;
+}
+
+unsigned Settings::reached(uint32_t levels) const {
+    const unsigned furthest = level("reached", levels);
+    return furthest ? furthest : 1;
 }
 
 void Settings::set_reached(uint32_t levels, unsigned level) {
-    set(reached_key(levels), std::to_string(level));
+    set(level_key("reached", levels), std::to_string(level));
+}
+
+unsigned Settings::last(uint32_t levels) const { return level("last", levels); }
+
+void Settings::set_last(uint32_t levels, unsigned level) {
+    set(level_key("last", levels), std::to_string(level));
 }
 
 bool Settings::find(const std::string& key, std::string& value) const {

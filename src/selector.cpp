@@ -1,6 +1,6 @@
-// The map selector (ENHANCEMENTS.md, E1). Not original: enhanced mode only,
-// in place of the password screen on F2 in the menu. All 100 maps, 20 to a
-// page, as miniatures of their boards; the ones never reached are a grey
+// The map selector (ENHANCEMENTS.md, E1 and E2). Not original: enhanced mode
+// only, in place of the password screen on F2 in the menu. All 100 maps, 20
+// to a page, as miniatures of their boards; the ones never reached are a grey
 // "unknown" map. Progress is kept in STONEAGE.ENH, one line per level set.
 #include "game.hpp"
 #include <algorithm>
@@ -53,13 +53,15 @@ private:
     uint8_t tile_pixels[5][40][9] = {}; // [theme][sprite][column * 3 + row]
     std::array<uint8_t, 768> palette{};
     unsigned furthest = 1; // 1-100
+    unsigned last = 0;     // 1-100, 0 for none
 };
 
 void MapSelector::run() {
     screen.set_layout(false);
     gather();
     build_palette();
-    unsigned cursor = furthest - 1;
+    // On the map last started (E2), or the furthest when that is unknown.
+    unsigned cursor = last && reached(last - 1) ? last - 1 : furthest - 1;
     draw(cursor);
     screen.flip();
     fade(true);
@@ -114,7 +116,10 @@ void MapSelector::run() {
 // The level records, as load_level (CS:0ef2) reads them, the tiles of the
 // five themes, and how far this level set has been played.
 void MapSelector::gather() {
-    furthest = g.load_settings().reached(g.level_set());
+    const Settings settings = g.load_settings();
+    const uint32_t set = g.level_set();
+    furthest = settings.reached(set);
+    last = settings.last(set);
     const uint8_t* const records = g.far(g.work_buffer());
     const unsigned size = g.level_record_size();
     boards.resize(maps * Board::columns * Board::rows);
@@ -319,9 +324,12 @@ uint32_t Game::level_set() const {
 void Game::record_level() const {
     const uint32_t set = level_set();
     Settings settings = load_settings();
-    if (level() + 1u <= settings.reached(set))
-        return;
-    settings.set_reached(set, level() + 1u);
+    const unsigned started = level() + 1u;
+    if (started <= settings.reached(set) && started == settings.last(set))
+        return; // nothing new: no write
+    if (started > settings.reached(set))
+        settings.set_reached(set, started);
+    settings.set_last(set, started); // E2
     save_settings(settings);
 }
 } // namespace stone

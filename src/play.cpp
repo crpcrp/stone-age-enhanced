@@ -153,13 +153,16 @@ int main(int argc, char** argv) {
             if (!original.empty())
                 original_package.reset(new stone::Package(original));
         }
+        // STONEAGE.ENH, empty when there is none: every default. A scripted
+        // run keeps what it saves in memory, so it never changes the
+        // player's progress (ENHANCEMENTS.md, rule 5).
+        stone::Bytes settings_file;
+        read(score_directory + stone::Settings::file_name, settings_file);
         // Each part from the set STONEAGE.ENH chooses for it.
         const stone::Package* parts[stone::Settings::parts];
         std::unique_ptr<stone::Assets> assets;
         auto choose_assets = [&]() {
-            stone::Bytes file;
-            read(score_directory + stone::Settings::file_name, file);
-            const stone::Settings settings(file);
+            const stone::Settings settings(settings_file);
             for (unsigned n = 0; n < stone::Settings::parts; ++n)
                 parts[n] = original_package && settings.original(stone::Settings::Part(n))
                                ? original_package.get()
@@ -240,15 +243,22 @@ int main(int argc, char** argv) {
                 music->reset();
         };
         machine.load_file = [&](const std::string& name, stone::Bytes& data) {
+            if (name == stone::Settings::file_name) {
+                data = settings_file;
+                return !data.empty();
+            }
             // Without a saved table the game keeps the one built into it.
             return read(score_file(name), data);
         };
         machine.save_file = [&](const std::string& name, const stone::Bytes& data) {
+            if (name == stone::Settings::file_name) {
+                settings_file = data;
+                if (scripted)
+                    return;
+            }
             stone::write_file(score_file(name), data);
         };
-        stone::Bytes settings; // empty when there is none: the defaults
-        read(score_directory + stone::Settings::file_name, settings);
-        machine.enhanced = !original && stone::Settings(settings).enhanced();
+        machine.enhanced = !original && stone::Settings(settings_file).enhanced();
         machine.start(); // the game ends through INT 21h/4Ch
 
         stone::HostTickClock clock;

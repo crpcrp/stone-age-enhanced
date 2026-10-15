@@ -293,8 +293,8 @@ struct Game : GameNames {
     void draw_menu() const;
     // CS:0010. A game from this level until all lives are lost, Esc, or
     // the last level is completed. Not original: in enhanced mode each level
-    // started is recorded as reached, unless `counts` is false (a start by
-    // LVLnnn, ENHANCEMENTS.md E1).
+    // started is recorded as reached and as the last started, unless `counts`
+    // is false (a start by LVLnnn, ENHANCEMENTS.md E1 and E2).
     void run_game(uint8_t first_level, bool counts = true) const;
     // CS:0ed7. No points, five lives.
     void new_session() const;
@@ -341,7 +341,7 @@ struct Game : GameNames {
     // CS:2dd0, 2dea. Text in the jukebox's own letters; CR starts a line.
     void write_jukebox(const uint8_t* text) const;
     void write_jukebox(uint8_t character) const;
-    // CS:2fb6. Options, changed in both modes (ENHANCEMENTS.md, E0 and E2):
+    // CS:2fb6. Options, changed in both modes (ENHANCEMENTS.md, E0):
     // F1 enhanced mode, F2 the assets, F3 full background, F4 flat stone, F5
     // sound, F10 leaves. The original's F1-F3 were the last three; its
     // brightness keys F4 and F5 are gone, brightness stays as the game starts.
@@ -354,7 +354,7 @@ struct Game : GameNames {
     // each with sprite `sprites[n]` (ON or OFF) after it, or none for 0.
     void draw_option_lines(const char* const* labels, const uint8_t* sprites,
                            unsigned count) const;
-    // Not original (E2), F2 in Options: F1 images, F2 maps, F3 music, each
+    // Not original, F2 in Options: F1 images, F2 maps, F3 music, each
     // free or the original's, F10 back to Options. They change only with
     // the original game's files there; the choices are saved and the game
     // takes its assets from them when this is left.
@@ -371,7 +371,8 @@ struct Game : GameNames {
     void map_selector() const;
     // The CRC-32 of the level records, which tells level sets apart.
     uint32_t level_set() const;
-    // Level level() + 1 started: saved if it is further than that.
+    // Level level() + 1 started: saved as the last one started (E2), and as
+    // reached if it is further than that.
     void record_level() const;
     // CS:30f5. Text scrolling up over a picture, a pixel every three ticks,
     // until its end or a key. CS:30b7 before the game, with two names in an

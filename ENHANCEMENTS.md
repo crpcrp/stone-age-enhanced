@@ -3,8 +3,8 @@
 What the enhanced game adds to the original, and the plan for what comes
 next. The code refers to the entries here by number (`ENHANCEMENTS.md, E1`).
 
-- **E0 and E1** are done.
-- **E2 to E9** are planned. Their order below is the order of work: each
+- **E0 to E2** are done.
+- **E3 to E9** are planned. Their order below is the order of work: each
   one builds on those before it.
 
 ## Rules for every enhancement
@@ -49,7 +49,7 @@ game at any map already reached. The furthest map reached is saved as
 
 ---
 
-## E2: remember the last map
+## E2: remember the last map (done)
 
 **What.** The map selector opens on the map last started, not the furthest
 one.
@@ -64,6 +64,12 @@ one.
 
 **Done when** the selector opens on the map you left, also after restarting
 the game, and each level set remembers its own.
+
+**As built.** `record_level()` writes `last` and `reached` together, and
+writes nothing when neither changes. Rule 5 is in place in `play.cpp`: a
+scripted run keeps `STONEAGE.ENH` in memory, reading the saved file once at
+its start and never writing it. `stone_tests` (`tests/`) checks the new
+lines.
 
 ## E3: best time and best score for each map
 
@@ -433,9 +439,8 @@ back the same.
 
 ## Tests
 
-The repository has no tests that run without the original game. A
-`stone_tests` target (CTest) is added with E2 and grows with each
-enhancement:
+`stone_tests` (CTest, `tests/`) runs without the original game. It was added
+with E2 and grows with each enhancement:
 - `Settings`: reading and writing every new line, and keeping lines it
   does not know.
 - E7: pack parsing, both good files and every error, and writing a pack

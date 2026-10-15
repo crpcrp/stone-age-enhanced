@@ -3,7 +3,7 @@
 
 namespace stone {
 // STONEAGE.ENH beside the player: what the enhanced game keeps between runs
-// (ENHANCEMENTS.md, E0 to E2). Never STONEAGE.HI, whose bytes stay the
+// (ENHANCEMENTS.md). Never STONEAGE.HI, whose bytes stay the
 // original's. A text file of lines `key value...`; a line this version does
 // not know is kept as it is when the file is written again.
 class Settings {
@@ -18,7 +18,8 @@ public:
     void set_enhanced(bool on);
     // `images`, `maps` or `music` followed by `original` or `free`: which
     // asset set that part comes from when the original game's files are
-    // there (E2). Without the line, or with any other value, the original.
+    // there (Options F2). Without the line, or with any other value, the
+    // original.
     enum Part { images, maps, music };
     static const unsigned parts = 3;
     bool original(Part part) const;
@@ -28,11 +29,17 @@ public:
     // without the line or with a bad value.
     unsigned reached(uint32_t levels) const;
     void set_reached(uint32_t levels, unsigned level);
+    // `last <crc> <level>`: the level, 1-100, last started of that level set
+    // (ENHANCEMENTS.md, E2). 0 without the line or with a bad value.
+    unsigned last(uint32_t levels) const;
+    void set_last(uint32_t levels, unsigned level);
 
 private:
     // The value of the first line `key ...`; false when there is none.
     bool find(const std::string& key, std::string& value) const;
     void set(const std::string& key, const std::string& value);
+    // The level, 1-100, of the line `key <crc>`; 0 when there is none.
+    unsigned level(const char* key, uint32_t levels) const;
     std::vector<std::string> lines;
 };
 } // namespace stone

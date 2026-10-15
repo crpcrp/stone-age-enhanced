@@ -51,6 +51,14 @@ add_custom_target(stone_asset_package ALL
     COMMAND stone_assets pack "${STONE_ASSETS}" "${STONE_OUTPUT}/stoneage.dat"
     COMMENT "Packing assets/ into build/stoneage.dat")
 
+# Tests that need nothing of the original game (ENHANCEMENTS.md, Tests).
+include(CTest)
+if(BUILD_TESTING)
+    add_executable(stone_tests tests/settings_tests.cpp)
+    target_link_libraries(stone_tests PRIVATE stone_core)
+    add_test(NAME settings COMMAND stone_tests)
+endif()
+
 if(STONE_BUILD_PLAYER)
     # Dependencies are downloaded once into the build tree and checked against
     # pinned hashes. FETCHCONTENT_SOURCE_DIR_<NAME> points one at a local copy.

@@ -106,12 +106,23 @@ part of this repository; in a fork, edit them like any other source.
 
 ## Tests
 
-The tests replay key scripts on the game and compare every 70 Hz tick with a
-run of the original executable under the same keys. They, their recorded
-fixtures and the scripts that make them are derived from the original game
-and are not part of this repository. With them in `research/` and the
+`stone_tests` needs nothing of the original game and is built with every
+preset; run it with `ctest --test-dir build/cmake -C Release` (or the build tree
+of the preset used). It tests the saved settings (`tests/`).
+
+The comparison tests replay key scripts on the game and compare every 70 Hz
+tick with a run of the original executable under the same keys. They, their
+recorded fixtures and the scripts that make them are derived from the
+original game and are not part of this repository. With them in `research/` and the
 original files in `original_data/`, `.\build.ps1 -Test` (or the `test`
 presets) builds and runs them.
+
+In Claude Code cloud sessions, `.claude/hooks/session-start.sh` builds the
+player without a display (SDL for the console only, in
+`build/cmake-headless`) and sets SDL's off-screen video and dummy audio
+drivers, so scripted runs (`--keys`, `--ticks`, `--screenshot`) and
+`stone_tests` work there. It builds in the background while the session
+starts; the build is done when `build/cmake-headless/ready` exists.
 
 ## Limits
 
