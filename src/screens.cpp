@@ -294,63 +294,47 @@ void Game::add_stats_line() const {
 // Not original (ENHANCEMENTS.md, E9). Below the F8 line add_stats_line
 // made there is no room for a ninth before the eclipse stone, so the eight
 // lines close up to 8 pixels apart, each a band of eight rows moved up, and
-// `F9 - EDITOR` goes below them. Its F, the dash and the T are letters of
-// the lines, its 9 their 6 turned round and its E their F closed at the
-// bottom; D, I, O and R, which the lines lack, are drawn in the colour of
-// their F.
+// `F9 - EDITOR` goes below them, put together from letters of the lines
+// above it as they are spaced there: the dash 20 pixels after the F, the
+// word 31, a letter 8 pixels on and the narrow I 4. Its 9 is their 6
+// turned round.
 void Game::add_editor_line() const {
     uint8_t* const picture = m.at(picture_buffer()[1], 0);
     const uint8_t black = picture[60 * 320 + 72];
-    struct Glyph {
-        std::vector<uint8_t> pixels;
-        unsigned width;
+    // Where the letters are as add_stats_line left the lines (8 pixels up):
+    // E and R in ENTER of the F2 line, D, O, T and I in SOUND OPTIONS of
+    // the F4 line, F and the dash of the F8 line, 6 of the F6 line.
+    struct Letter {
+        unsigned from_x, from_y, width, to_x;
+        bool turned;
     };
-    const auto take = [&](unsigned x, unsigned y, unsigned width) {
-        Glyph glyph = {std::vector<uint8_t>(7 * width), width};
-        for (unsigned row = 0; row < 7; ++row)
-            for (unsigned column = 0; column < width; ++column)
-                glyph.pixels[row * width + column] = picture[(y + row) * 320 + x + column];
-        return glyph;
-    };
-    // From the lines as add_stats_line left them, 8 pixels up.
-    const Glyph f = take(122, 129, 5), dash = take(141, 129, 6), t = take(184, 89, 7);
-    Glyph nine = take(116, 109, 7);
-    std::reverse(nine.pixels.begin(), nine.pixels.end());
-    Glyph e = f;
-    std::copy_n(e.pixels.begin(), e.width, e.pixels.end() - e.width);
-    unsigned uses[256] = {};
-    for (const uint8_t pixel : f.pixels)
-        ++uses[pixel];
-    uses[black] = 0;
-    const uint8_t ink = uint8_t(std::max_element(uses, uses + 256) - uses);
-    const auto drawn = [&](const char* const* rows) {
-        Glyph glyph = {std::vector<uint8_t>(35), 5};
-        for (unsigned n = 0; n < 35; ++n)
-            glyph.pixels[n] = rows[n / 5][n % 5] == '#' ? ink : black;
-        return glyph;
-    };
-    const char* const d_rows[] = {"####.", "#...#", "#...#", "#...#", "#...#", "#...#", "####."};
-    const char* const i_rows[] = {".###.", "..#..", "..#..", "..#..", "..#..", "..#..", ".###."};
-    const char* const o_rows[] = {".###.", "#...#", "#...#", "#...#", "#...#", "#...#", ".###."};
-    const char* const r_rows[] = {"####.", "#...#", "#...#", "####.", "#.#..", "#..#.", "#...#"};
-    // The lines close up: line n from 59 + 10n to 59 + 8n.
-    for (unsigned line = 1; line < 8; ++line)
-        for (unsigned row = 0; row < 8; ++row)
-            std::copy_n(picture + (59 + 10 * line + row) * 320 + 72, 160,
-                        picture + (59 + 8 * line + row) * 320 + 72);
-    for (unsigned y = 59 + 8 * 8; y < 136; ++y)
-        std::fill_n(picture + y * 320 + 72, 160, black);
     const unsigned top = 59 + 8 * 8, left = 73 + 7 * 8; // as the lines step
-    const struct {
-        Glyph glyph;
-        unsigned x;
-    } line[] = {{f, left},           {nine, left + 8},       {dash, left + 19},
-                {e, left + 30},      {drawn(d_rows), left + 38}, {drawn(i_rows), left + 46},
-                {t, left + 53},      {drawn(o_rows), left + 62}, {drawn(r_rows), left + 70}};
-    for (const auto& letter : line)
-        for (unsigned row = 0; row < 7; ++row)
-            std::copy_n(&letter.glyph.pixels[row * letter.glyph.width], letter.glyph.width,
-                        picture + (top + row) * 320 + letter.x);
+    const Letter line[] = {{122, 129, 5, left, false},      {116, 109, 7, left + 8, true},
+                           {141, 129, 6, left + 20, false}, {111, 69, 7, left + 31, false},
+                           {157, 89, 7, left + 39, false},  {192, 89, 3, left + 47, false},
+                           {184, 89, 7, left + 51, false},  {169, 89, 7, left + 59, false},
+                           {142, 69, 7, left + 67, false}};
+    std::vector<std::vector<uint8_t>> glyphs;
+    for (const Letter& letter : line) {
+        std::vector<uint8_t> glyph;
+        for (unsigned y = 0; y < 7; ++y)
+            for (unsigned x = 0; x < letter.width; ++x)
+                glyph.push_back(picture[(letter.from_y + y) * 320 + letter.from_x + x]);
+        if (letter.turned)
+            std::reverse(glyph.begin(), glyph.end());
+        glyphs.push_back(glyph);
+    }
+    // The lines close up: line n from 59 + 10n to 59 + 8n.
+    for (unsigned n = 1; n < 8; ++n)
+        for (unsigned row = 0; row < 8; ++row)
+            std::copy_n(picture + (59 + 10 * n + row) * 320 + 72, 160,
+                        picture + (59 + 8 * n + row) * 320 + 72);
+    for (unsigned y = top; y < 136; ++y)
+        std::fill_n(picture + y * 320 + 72, 160, black);
+    for (std::size_t n = 0; n < glyphs.size(); ++n)
+        for (unsigned y = 0; y < 7; ++y)
+            std::copy_n(&glyphs[n][y * line[n].width], line[n].width,
+                        picture + (top + y) * 320 + line[n].to_x);
 }
 
 void Game::run_game(uint8_t first_level, bool counts) const {
