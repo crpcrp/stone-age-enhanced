@@ -1,4 +1,4 @@
-// Saves in the browser (WEB_PLAN.md, milestone 2). Linked into index.js with
+// Saves in the browser (BUILDING.md, Web version). Linked into index.js with
 // --pre-js, so FS and IDBFS are in scope. /save is the player's folder for
 // STONEAGE.ENH, STONEAGE.HI, FREEMAPS.HI and original.dat, kept in the
 // browser's IndexedDB.

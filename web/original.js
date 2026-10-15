@@ -1,4 +1,4 @@
-// The original game in the browser (WEB_PLAN.md, milestone 3). Linked into
+// The original game in the browser (BUILDING.md, Web version). Linked into
 // index.js with --pre-js after saves.js. The player adds a zip of the
 // original's files; play.cpp packs it into /save/original.dat, which stays in
 // this browser like the saves, and the game then offers ORIG in Options F2.

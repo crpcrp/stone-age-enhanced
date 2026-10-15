@@ -11,7 +11,7 @@ endif()
 # (build/stone_play.exe) stay valid.
 set(STONE_OUTPUT "${CMAKE_SOURCE_DIR}/build")
 if(EMSCRIPTEN)
-    set(STONE_OUTPUT "${CMAKE_SOURCE_DIR}/build/web") # the web page and its files (WEB_PLAN.md)
+    set(STONE_OUTPUT "${CMAKE_SOURCE_DIR}/build/web") # the web page and its files
 endif()
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${STONE_OUTPUT}")
 foreach(config DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)

@@ -58,6 +58,26 @@ build/web`) rather than opening the file. `web/shell.html` is the page
 around the canvas, `web/saves.js` keeps the saves in IndexedDB and
 `web/original.js` adds the original game from a zip.
 
+How it differs from the desktop:
+
+- **No threads.** `Machine::Turns` (`machine.cpp`) hands turns between the
+  host and the game's routines with Emscripten fibers (`-sASYNCIFY`) in place
+  of a thread, so the page needs no `SharedArrayBuffer` and no cross-origin
+  isolation headers, which GitHub Pages cannot send.
+- **One step a frame.** The body of the loop in `play.cpp` is one step
+  function; the desktop calls it in its loop, the browser once a frame
+  (`emscripten_set_main_loop_arg`). When the game ends the page offers
+  "Play again". The game stands still until the canvas has the keyboard.
+- **Saves.** `/save` is IndexedDB (IDBFS), read in before the game starts
+  and written after each save. **Export saves** and **Import saves** zip
+  `STONEAGE.ENH`, `STONEAGE.HI`, `FREEMAPS.HI` and `original.dat`
+  (`src/zip.cpp`).
+- **The original game.** The zip a player adds is unpacked in memory, its
+  executable's size and SHA-256 checked, and packed into
+  `/save/original.dat` as on the desktop; the loose files are deleted.
+- **Options.** `?original` and `?free` in the page's address stand for
+  `--original` and `--free`.
+
 `.github/workflows/web.yml` builds the page on every push and pull request
 and publishes it on GitHub Pages from `main`, with `LICENSE`, `LEGAL.md`
 and the notices. Pages must be set once to deploy from Actions: Settings →
@@ -123,7 +143,8 @@ replacing files; it is not encryption.
   file). The rest of `src/` does not use SDL.
 - `src/zip.*`: reading and writing zip files, for the web page's saves.
 - `web/`: the web page around the browser build (`shell.html`) and its
-  saves in IndexedDB (`saves.js`); see `WEB_PLAN.md`.
+  saves in IndexedDB (`saves.js`) and the original game from a zip
+  (`original.js`); see "Web version" above.
 - `src/stone.*`: byte buffers, files, BMP output, CRC-32.
 
 `src/game_data.inc`, `game_names.hpp`, `keyboard.hpp`, `music_lift.inc` and
@@ -165,6 +186,10 @@ In the browser:
   them; **Export saves** keeps them in a zip.
 - 70 ticks a second on a 60 Hz screen: one frame in six shows two ticks, as
   on the desktop.
+- Checked in Chromium only. Still to be checked by hand: the keys in
+  Firefox, Esc in fullscreen with the Keyboard Lock API in a headed
+  Chromium, and adding a real zip of the original game (Options F2 should
+  then offer ORIG).
 
 ## Distribution
 

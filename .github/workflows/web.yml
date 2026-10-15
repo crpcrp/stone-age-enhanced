@@ -1,4 +1,4 @@
-# The web version (WEB_PLAN.md, milestone 5): built on every push and pull
+# The web version (BUILDING.md, Web version): built on every push and pull
 # request, published on GitHub Pages from main. Pull requests only build, so a
 # broken web build shows on them and is never published.
 name: Web
@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  EMSDK_VERSION: 4.0.10 # as pinned in WEB_PLAN.md
+  EMSDK_VERSION: 4.0.10 # as named in BUILDING.md
 
 jobs:
   build:
