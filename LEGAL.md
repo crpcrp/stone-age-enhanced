@@ -33,8 +33,7 @@ the site or anywhere else.
 ## Rights holders
 
 If you hold rights in Stone Age and want this project changed or taken
-down, open an issue on the repository or contact its owner through GitHub,
-and it will be dealt with promptly.
+down, open an issue on the repository or contact its owner through GitHub.
 
 ## History
 
