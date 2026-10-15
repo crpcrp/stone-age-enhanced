@@ -13,7 +13,9 @@ next. The code refers to the entries here by number (`ENHANCEMENTS.md, E1`).
    or off together. There is no separate switch for each feature. With
    enhanced mode off, or with `--original`, the game is the original's in
    every frame, palette, music call and score-file write, and the comparison
-   tests with the original executable still pass unchanged.
+   tests with the original executable still pass unchanged. The one
+   exception is touch in the web version (E6), which is on in both modes:
+   it only sends keys, as a keyboard does.
 2. **No new state in the original's memory.** Enhancements keep their state
    in C++ members of `Machine` or in local objects, as the map selector
    does, and never in the data segment the original uses. The two programs
@@ -244,9 +246,19 @@ of a line.
 - `smooth` runs Scale2x twice on the CPU (320×200 to 1280×800), only when
   the game's picture changes, and draws that with linear filtering.
 
-## E6: gamepad
+## E6: gamepad and touch
 
-With enhanced mode off, gamepads are ignored, as rule 1 says.
+Two ways to play without a keyboard: a gamepad, and touch on a phone or
+tablet in the web version. Both send the scan bytes and characters the
+keyboard sends, so the game and its determinism are untouched. They share
+one table: where the lines of each function-key screen are.
+
+With enhanced mode off, gamepads are ignored, as rule 1 says. Touch is on in
+both modes, the tapping of lines included (rule 1's exception): without it
+the replica cannot be played on a phone at all, and it changes only how keys
+reach the game, never what the game does with them.
+
+### Gamepad
 
 Through SDL3's gamepad API (add `SDL_INIT_GAMEPAD`). The host turns
 buttons into the same scan bytes the keyboard sends, so the game and its
@@ -284,12 +296,84 @@ a gamepad:
 The host does this by typing the characters into the game through
 `Machine::type`, as the keyboard does.
 
-**Files.** `play.cpp`, a new `gamepad.{hpp,cpp}` beside it, and
-`screens.cpp` (the line cursor).
+### Touch (web version)
 
-**Done when** a whole game can be played on an Xbox-style and a
-PlayStation-style gamepad, from the menu through the score table, without
-touching the keyboard.
+Shown only on touch screens (`matchMedia('(pointer: coarse)')`); with a
+mouse and keyboard the page stays as it is.
+
+**Landscape and fullscreen.** The picture is 16:10 and a phone held
+sideways is about 20:9, so there is a strip free on each side of it.
+- On Android the first tap on the overlay ("Click to play") also asks for
+  fullscreen on `#game` and then `screen.orientation.lock('landscape')`.
+  The game goes on if either is refused.
+- iPhone Safari allows neither for a page. A web app manifest
+  (`display: fullscreen`, `orientation: landscape`) with an icon makes the
+  game fullscreen and sideways when it is added to the home screen.
+- Held upright, the page says to turn the phone.
+- In fullscreen `fit()` reserves no room for the toolbar, and a small ✕
+  leaves fullscreen, since a phone has no Esc.
+
+**Buttons,** in the strips beside the picture, so they cover nothing. They
+are drawn see-through only where there is no strip (upright, or a screen
+narrower than 16:10).
+
+| Where | Buttons |
+|---|---|
+| Left strip | A D-pad. Sliding the finger to another direction releases the old arrow and presses the new one. |
+| Right strip | Space, Enter, Esc. |
+| A row above them | P, Q, Tab, PgUp, PgDn. |
+| A "Keys" drawer | F1 to F10, for any screen the line table does not cover. |
+
+How keys reach the game: a new export `stone_key(scan, down)` sets the
+player's `scan` as a key event does (`Player::step`), and types the extended
+key when the game reads characters (`type_key`). Making browser keyboard
+events instead is less reliable.
+
+The browser must not get in the way:
+- The buttons cancel `pointerdown`, so the canvas keeps the focus. Without
+  it the game stands still (`stone_focus`) at every press.
+- `touch-action: none` on the game and the buttons stops scrolling and
+  double-tap zoom; long-press selection and the context menu are off.
+- Lifting a finger, `pointercancel` and losing the page release the key.
+
+**Tapping the screens.** A tap on a line of the menu, Options, the jukebox
+or the editor sends that line's function key, from the table of line
+positions below. The game tells the host which screen is showing through a
+`Machine` member, as for the display preset (E5), never through the
+original's memory (rule 2). In the map selector a tap on a miniature moves
+the cursor there, and a tap on the cursor plays it. With enhanced mode off
+the original's screens have no cursor, but a tap on a line works there too.
+
+**Typing.** A phone shows its keyboard only for a focused text field. While
+the game reads characters (`reads_characters()`: name entry, the password
+screen) the page shows one over the picture, and an export `stone_type`
+passes what is typed to the game as `type_text` does. SDL 3.4 may show the
+keyboard by itself on `SDL_StartTextInput`; that is tried first.
+
+### Shared: the line table
+
+The positions of the lines on each function-key screen are a small table:
+for the free pictures documented in `ASSETS.md`, for the original's
+pictures measured once and compiled in. The gamepad's cursor moves along
+it; touch hit-tests it.
+
+**Files.** `play.cpp`, a new `gamepad.{hpp,cpp}` beside it, `screens.cpp`
+(the line cursor and table), `machine.hpp` (the screen showing),
+`web/shell.html` (the buttons, fullscreen, the text field), a new
+`web/manifest.webmanifest` with an icon, `CMakeLists.txt` (copying them),
+`ASSETS.md`, `README.md`.
+
+**Done when**
+- a whole game can be played on an Xbox-style and a PlayStation-style
+  gamepad, from the menu through the score table, without touching the
+  keyboard;
+- a whole game can be played on an Android and an iPhone by touch alone, in
+  enhanced mode and with `?original`: the menu by tapping, a level, the
+  password screen and the score table;
+- with a mouse and keyboard the web page is as before, and `replay_tests`
+  passes unchanged;
+- a native test with enhanced mode on taps fixed points of the menu and the
+  selector and compares a screenshot.
 
 ## E7: level packs
 
@@ -517,7 +601,8 @@ whoever holds the original runs them.
 Decided:
 
 1. **E5 and E6 follow the switch.** With enhanced mode off, the display
-   presets and the gamepad are all off, as rule 1 says.
+   presets and the gamepad are all off, as rule 1 says. Touch (E6) is on in
+   both modes, tapping included, so the replica can be played on a phone.
 2. **E7, F1 plays the active pack.** F1 (new game) starts the pack chosen
    in the selector, from its first level.
 3. **E7, each pack has its own high scores,** in its own score table
