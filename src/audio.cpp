@@ -1,20 +1,16 @@
 #include "audio.hpp"
-#include "dbopl.h"
+#include "ymfm_opl.h"
 #include <algorithm>
 #include <stdexcept>
-namespace DBOPL {
-void InitTables();
-}
 namespace stone {
-MusicSynth::MusicSynth(const Song& song) : chip(new DBOPL::Chip), driver(song) {
-    // Match the user's reference: DOSBox 0.74-3, default DBOPL at 44100 Hz.
-    // DBOPL global lookup tables are immutable after this one-time setup.
-    static const bool tables_ready = []() {
-        DBOPL::InitTables();
-        return true;
-    }();
-    (void)tables_ready;
-    chip->Setup(sample_rate());
+// The AdLib's YM3812 on its 3.579545 MHz crystal, emulated by ymfm. It needs
+// no timers or interrupts from the host: the driver runs on the PIT below.
+struct MusicSynth::Chip {
+    ymfm::ymfm_interface host;
+    ymfm::ym3812 opl{host};
+};
+MusicSynth::MusicSynth(const Song& song) : chip(new Chip), driver(song) {
+    chip->opl.reset();
     apply();
 }
 MusicSynth::~MusicSynth() = default;
@@ -27,13 +23,11 @@ void MusicSynth::reset() {
     apply();
 }
 int MusicSynth::sample_rate() const {
-    return 44100;
+    // The chip's own rate, clock / 72; SDL resamples it for the device.
+    return 49716;
 }
 void MusicSynth::apply() {
-    // DBOPL processes key edges when written, just as DOSBox does. Inserting
-    // invented chip clocks changes attack/release and transient note pitches.
-    for (auto w : driver.writes)
-        chip->WriteReg(w.first, w.second);
+    queued.insert(queued.end(), driver.writes.begin(), driver.writes.end());
 }
 std::vector<int16_t> MusicSynth::generate(int count) {
     if (count < 0 || count > sample_rate() * 120)
@@ -47,10 +41,19 @@ std::vector<int16_t> MusicSynth::generate(int count) {
             apply();
             until_tick += period;
         }
-        Bit32s output = 0;
-        chip->GenerateBlock2(1, &output);
-        // Original DOSBox 0.74-3 FM mixer uses SetScale(2.0).
-        sample = int16_t(std::max(-32768, std::min(32767, output * 2)));
+        // One register write a sample. An AdLib needs 23 microseconds after
+        // each write, a little more than a sample, and ymfm, like the chip,
+        // sees a key only when it clocks: a note keyed off and on again
+        // between two samples would not start again.
+        if (!queued.empty()) {
+            chip->opl.write_address(queued.front().first);
+            chip->opl.write_data(queued.front().second);
+            queued.pop_front();
+        }
+        ymfm::ym3812::output_data output;
+        chip->opl.generate(&output);
+        // Twice ymfm's level: as loud as these songs were with DOSBox's OPL.
+        sample = int16_t(std::max(-32768, std::min(32767, output.data[0] * 2)));
         until_tick -= 14318180;
     }
     return samples;

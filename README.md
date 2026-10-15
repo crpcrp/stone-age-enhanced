@@ -6,7 +6,8 @@ play exactly as in the original: the same rules, movement, timing in 70 Hz
 ticks, graphics, AdLib music and high-score file. Around them it adds
 improvements, such as choosing any map already reached instead of typing its
 password. An enhanced mode, on by default and switched in Options, turns
-them all off and gives the original game back. It runs on Windows.
+them all off and gives the original game back. It runs on Windows and in a
+web browser.
 
 This is an unofficial project, not affiliated with or endorsed by the
 original authors or rights holders.
@@ -21,6 +22,17 @@ original authors or rights holders.
 - **Not included:** anything of the original game's content: its graphics,
   music, levels, passwords and texts.
 
+## Play in the browser
+
+**<https://crpcrp.github.io/stone-age-enhanced/>**: the free set, nothing to
+install. It needs a keyboard. Scores and settings stay in that browser;
+**Export saves** and **Import saves** keep them in a zip. If you own the
+original game, **Add the original game (zip)** takes a zip of `SA_V1_00.EXE`
+and its eight `.CMF` songs; it is unpacked in your browser and never
+uploaded. `?original` after the address plays one session without the
+enhancements, `?free` one without the original's files. The page is built
+from `main` by GitHub Actions on every push.
+
 ## How it was checked
 
 The reconstruction, with the enhancements off, was compared with the
@@ -33,10 +45,10 @@ repository.
 
 ## Build
 
-There are no prebuilt downloads: build the game from source. You need CMake
+For the desktop there are no prebuilt downloads: build the game from source.
+You need CMake
 3.25+ and a C++14 compiler; on Windows, Visual Studio 2022 or its Build Tools
-with the C++ workload has both. The first build downloads SDL3 and DOSBox's
-OPL emulator.
+with the C++ workload has both. The first build downloads SDL3.
 
 ```powershell
 cmake --preset default

@@ -6,12 +6,12 @@
   (or its Build Tools) with the C++ workload provides both, and opens the
   folder directly as a CMake project.
 - An internet connection for the first build. CMake downloads SDL3 3.4.16
-  and the DOSBox 0.74-3 source into the build tree and checks them against
-  pinned SHA-256 hashes; nothing else needs installing. On Windows it uses
+  into the build tree and checks it against pinned SHA-256 hashes; nothing
+  else needs installing. On Windows it uses
   SDL's prebuilt development package; elsewhere it uses an installed SDL3
   when there is one and otherwise builds SDL from source. To use local
-  copies, set `FETCHCONTENT_SOURCE_DIR_SDL3_MINGW` (Windows),
-  `FETCHCONTENT_SOURCE_DIR_SDL3` or `FETCHCONTENT_SOURCE_DIR_DOSBOX`.
+  copy, set `FETCHCONTENT_SOURCE_DIR_SDL3_MINGW` (Windows) or
+  `FETCHCONTENT_SOURCE_DIR_SDL3`.
 
 ## Build
 
@@ -22,9 +22,9 @@ cmake --preset default
 cmake --build --preset default
 ```
 
-Other presets: `ninja` (Ninja with GCC or Clang) and `core` (the portable
-core and the asset packer only, without SDL and the player). Plain
-`cmake -S . -B build/cmake` works as well.
+Other presets: `ninja` (Ninja with GCC or Clang), `core` (the portable
+core and the asset packer only, without SDL and the player) and `wasm` (the
+web version, below). Plain `cmake -S . -B build/cmake` works as well.
 
 On Windows, `build.ps1` does the same and finds the CMake that Visual Studio
 installs when none is on `PATH`:
@@ -39,6 +39,49 @@ Outputs are written to `build/`: `stone_play.exe`, `SDL3.dll`,
 `stoneage.dat` (the packed `assets/`), `stone_assets.exe` and the legal
 notices. The CMake build trees are in `build/cmake*`; later builds are
 incremental.
+
+## Web version
+
+The browser build needs Emscripten (emsdk 4.0.10, as pinned in
+`.github/workflows/web.yml`) and Ninja, and the package the `core` preset
+packs, since `stone_assets` cannot run inside the browser build:
+
+```sh
+cmake --preset core && cmake --build --preset core
+emcmake cmake --preset wasm
+cmake --build --preset wasm
+```
+
+The page is `build/web/index.html` with `index.js`, `index.wasm` and
+`index.data`; serve the folder over HTTP (`python3 -m http.server -d
+build/web`) rather than opening the file. `web/shell.html` is the page
+around the canvas, `web/saves.js` keeps the saves in IndexedDB and
+`web/original.js` adds the original game from a zip.
+
+How it differs from the desktop:
+
+- **No threads.** `Machine::Turns` (`machine.cpp`) hands turns between the
+  host and the game's routines with Emscripten fibers (`-sASYNCIFY`) in place
+  of a thread, so the page needs no `SharedArrayBuffer` and no cross-origin
+  isolation headers, which GitHub Pages cannot send.
+- **One step a frame.** The body of the loop in `play.cpp` is one step
+  function; the desktop calls it in its loop, the browser once a frame
+  (`emscripten_set_main_loop_arg`). When the game ends the page offers
+  "Play again". The game stands still until the canvas has the keyboard.
+- **Saves.** `/save` is IndexedDB (IDBFS), read in before the game starts
+  and written after each save. **Export saves** and **Import saves** zip
+  `STONEAGE.ENH`, `STONEAGE.HI`, `FREEMAPS.HI` and `original.dat`
+  (`src/zip.cpp`).
+- **The original game.** The zip a player adds is unpacked in memory, its
+  executable's size and SHA-256 checked, and packed into
+  `/save/original.dat` as on the desktop; the loose files are deleted.
+- **Options.** `?original` and `?free` in the page's address stand for
+  `--original` and `--free`.
+
+`.github/workflows/web.yml` builds the page on every push and pull request
+and publishes it on GitHub Pages from `main`, with `LICENSE`, `LEGAL.md`
+and the notices. Pages must be set once to deploy from Actions: Settings →
+Pages → Build and deployment → Source: GitHub Actions.
 
 ## Run
 
@@ -92,15 +135,16 @@ replacing files; it is not encryption.
   menu and their screens; pages, sprites, colours and text).
 - `src/music.*`, `music_lift.inc`, `music_tables.inc`: the song format and
   the music driver; its output is OPL register writes.
-- `src/audio.*`, `src/dosbox_compat/`: the music synthesized with DOSBox's
-  DBOPL OPL emulator (fetched at build time, unmodified).
+- `src/audio.*`: the music synthesized with ymfm's YM3812 emulator
+  (`third_party/ymfm/`, unmodified), one register write a sample.
 - `src/assets.*`, `content.*`, `package.*`, `assets_main.cpp`: the editable
   assets, the package format and `stone_assets`.
 - `src/play.cpp`, `host_*.hpp`: the SDL host (window, keys, audio, score
   file). The rest of `src/` does not use SDL.
 - `src/zip.*`: reading and writing zip files, for the web page's saves.
 - `web/`: the web page around the browser build (`shell.html`) and its
-  saves in IndexedDB (`saves.js`); see `WEB_PLAN.md`.
+  saves in IndexedDB (`saves.js`) and the original game from a zip
+  (`original.js`); see "Web version" above.
 - `src/stone.*`: byte buffers, files, BMP output, CRC-32.
 
 `src/game_data.inc`, `game_names.hpp`, `keyboard.hpp`, `music_lift.inc` and
@@ -129,12 +173,27 @@ starts; the build is done when `build/cmake-headless/ready` exists.
 
 ## Limits
 
-Non-Windows builds have not been verified.
+Native builds other than Windows have not been verified; the headless Linux
+build of the cloud sessions and the web build are the exceptions.
+
+In the browser:
+
+- The game needs a keyboard; there are no touch controls.
+- The browser keeps some keys (Ctrl+W, Ctrl+T, Ctrl+N), which the game does
+  not use. In fullscreen Esc leaves fullscreen first, except in Chromium,
+  where the fullscreen button locks it for the game.
+- Saves belong to one browser and one site, and the browser may delete
+  them; **Export saves** keeps them in a zip.
+- 70 ticks a second on a 60 Hz screen: one frame in six shows two ticks, as
+  on the desktop.
+- Checked in Chromium only. Still to be checked by hand: the keys in
+  Firefox, Esc in fullscreen with the Keyboard Lock API in a headed
+  Chromium, and adding a real zip of the original game (Options F2 should
+  then offer ORIG).
 
 ## Distribution
 
-This project publishes source only, never a built player. If you build the
-player and pass it on, keep `LICENSE`, `LEGAL.md` and the `licenses` folder
-(copied into `build/`) with it. The player links DOSBox's GPL-licensed OPL
-emulator, so passing it on means meeting the GPL's terms, including
-providing the corresponding source; see [LEGAL.md](LEGAL.md).
+This project publishes its source and the web version built from it by the
+workflow; there are no desktop downloads. If you build the player and pass
+it on, keep `LICENSE`, `LEGAL.md` and the `licenses` folder
+(copied into `build/`) with it. See [LEGAL.md](LEGAL.md).

@@ -7,7 +7,6 @@
 !/LEGAL.md
 !/ASSETS.md
 !/ENHANCEMENTS.md
-!/WEB_PLAN.md
 !/CMakeLists.txt
 !/CMakePresets.json
 !/build.ps1
@@ -20,6 +19,7 @@
 !/third_party/
 /third_party/*
 !/third_party/licenses/
+!/third_party/ymfm/
 
 # Never version generated outputs, caches or executable game data.
 **/__pycache__/

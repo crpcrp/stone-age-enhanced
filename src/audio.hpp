@@ -1,9 +1,7 @@
 #pragma once
 #include "music.hpp"
+#include <deque>
 #include <memory>
-namespace DBOPL {
-struct Chip;
-}
 namespace stone {
 class MusicSynth {
 public:
@@ -18,8 +16,10 @@ public:
     void reset();
 
 private:
-    std::unique_ptr<DBOPL::Chip> chip;
+    struct Chip;
+    std::unique_ptr<Chip> chip;
     MusicDriver driver;
+    std::deque<std::pair<uint8_t, uint8_t>> queued; // register writes not yet made
     int64_t until_tick = 0;
     void apply();
 };

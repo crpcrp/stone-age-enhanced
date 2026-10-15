@@ -9,7 +9,7 @@ with them.
 
 The rest of this repository is copyright its contributors.
 
-Third-party components keep their own licenses: SDL3 (zlib) and DOSBox DBOPL
-(GNU GPL version 2 or later). Their notices are in third_party/licenses.
+Third-party components keep their own licenses: SDL3 (zlib) and ymfm (BSD
+3-Clause). Their notices are in third_party/licenses.
 
 This software is provided "as is", without warranty of any kind.

@@ -11,7 +11,7 @@ endif()
 # (build/stone_play.exe) stay valid.
 set(STONE_OUTPUT "${CMAKE_SOURCE_DIR}/build")
 if(EMSCRIPTEN)
-    set(STONE_OUTPUT "${CMAKE_SOURCE_DIR}/build/web") # the web page and its files (WEB_PLAN.md)
+    set(STONE_OUTPUT "${CMAKE_SOURCE_DIR}/build/web") # the web page and its files
 endif()
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${STONE_OUTPUT}")
 foreach(config DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
@@ -119,36 +119,17 @@ if(STONE_BUILD_PLAYER)
         FetchContent_MakeAvailable(SDL3)
     endif()
 
-    # DOSBox 0.74-3, unmodified; only its OPL emulator DBOPL is built.
-    FetchContent_Declare(dosbox
-        URL https://deb.debian.org/debian/pool/main/d/dosbox/dosbox_0.74-3.orig.tar.gz
-            https://downloads.sourceforge.net/project/dosbox/dosbox/0.74-3/dosbox-0.74-3.tar.gz
-        URL_HASH SHA256=c0d13dd7ed2ed363b68de615475781e891cd582e8162b5c3669137502222260a
-        DOWNLOAD_EXTRACT_TIMESTAMP ON)
-    FetchContent_MakeAvailable(dosbox)
-    # The two files are copied apart from DOSBox's own headers, so that
-    # dbopl.h finds the small stand-ins in src/dosbox_compat.
-    set(STONE_DBOPL "${CMAKE_BINARY_DIR}/dbopl")
-    foreach(name dbopl.cpp dbopl.h)
-        file(COPY "${dosbox_SOURCE_DIR}/src/hardware/${name}" DESTINATION "${STONE_DBOPL}")
-    endforeach()
-    file(SHA256 "${STONE_DBOPL}/dbopl.cpp" dbopl_cpp_hash)
-    file(SHA256 "${STONE_DBOPL}/dbopl.h" dbopl_h_hash)
-    if(NOT dbopl_cpp_hash STREQUAL "e538f5021c960aa180e43ec7910646b17b4948284723d8aa6c7dd873777e5141" OR
-       NOT dbopl_h_hash STREQUAL "d0b98e9df2b35b1fe83af96fd4fdc45b392a53827f13259110384193c7c61e45")
-        message(FATAL_ERROR "DOSBox DBOPL source checksum mismatch")
-    endif()
-    add_library(dbopl "${STONE_DBOPL}/dbopl.cpp")
-    target_include_directories(dbopl PRIVATE "${CMAKE_SOURCE_DIR}/src/dosbox_compat")
-    target_include_directories(dbopl SYSTEM PUBLIC "${STONE_DBOPL}")
+    # ymfm's YM3812, unmodified, from third_party/ymfm (BSD 3-Clause).
+    add_library(ymfm third_party/ymfm/ymfm_opl.cpp third_party/ymfm/ymfm_adpcm.cpp
+        third_party/ymfm/ymfm_pcm.cpp)
+    target_include_directories(ymfm SYSTEM PUBLIC third_party/ymfm)
     if(MSVC)
-        target_compile_options(dbopl PRIVATE /w)
+        target_compile_options(ymfm PRIVATE /w)
     else()
-        target_compile_options(dbopl PRIVATE -w)
+        target_compile_options(ymfm PRIVATE -w)
     endif()
     add_library(stone_audio_core src/audio.cpp)
-    target_include_directories(stone_audio_core PRIVATE src/dosbox_compat)
-    target_link_libraries(stone_audio_core PUBLIC stone_core dbopl)
+    target_link_libraries(stone_audio_core PUBLIC stone_core ymfm)
     add_executable(stone_play src/play.cpp)
     target_link_libraries(stone_play PRIVATE stone_audio_core SDL3::SDL3)
     if(MSVC)
@@ -159,7 +140,7 @@ if(STONE_BUILD_PLAYER)
         # package, preloaded where the desktop finds it beside the player).
         set_target_properties(stone_play PROPERTIES OUTPUT_NAME index SUFFIX .html)
         # The page's footer links to the source it was built from; the
-        # workflow gives the exact commit (WEB_PLAN.md, GPL).
+        # workflow gives the exact commit.
         set(STONE_SOURCE_URL "https://github.com/crpcrp/stone-age-enhanced" CACHE STRING
             "Where the web page's footer finds the source it was built from")
         configure_file("${CMAKE_SOURCE_DIR}/web/shell.html" "${CMAKE_BINARY_DIR}/shell.html" @ONLY)

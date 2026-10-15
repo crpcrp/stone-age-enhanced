@@ -23,6 +23,20 @@ endorsed by or authorized by the game's creators or rights holders. See
   with their passwords, the texts and the colours. They were
   made for this project and contain nothing taken from the original.
 
+## The web version
+
+The page on GitHub Pages is built from this repository alone and holds the
+free set only. The original game's files that a player adds there are
+unpacked in their browser and kept in its storage; they are never sent to
+the site or anywhere else.
+
+## Rights holders
+
+If you hold rights in Stone Age and want this project changed or taken
+down, open an issue on the repository or contact its owner through GitHub.
+
+## History
+
 The repository's history starts with the free asset set; earlier work that
 held the original's exported content is not published.
 
@@ -31,7 +45,7 @@ held the original's exported content is not published.
 | Component | License | Notice |
 |---|---|---|
 | SDL3 | zlib | [SDL3.txt](third_party/licenses/SDL3.txt) |
-| DOSBox 0.74-3 DBOPL | GNU GPL version 2 or later | [DOSBox-DBOPL.txt](third_party/licenses/DOSBox-DBOPL.txt) |
+| ymfm (YM3812 emulator) | BSD 3-Clause | [ymfm.txt](third_party/licenses/ymfm.txt) |
 
-The player links DBOPL. Anyone who distributes the player must meet the GPL's
-terms, including providing the corresponding source.
+Both licences allow the player to be passed on with their notices, which the
+build copies beside it and the web page publishes with it.
