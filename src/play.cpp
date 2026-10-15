@@ -15,7 +15,9 @@
 // byte in hex (80h added for a release) latched from that tick on.
 // In the browser the scores, settings and original.dat are kept in /save,
 // which web/saves.js keeps in IndexedDB; the page exports and imports them
-// as a zip (stone_export_saves, stone_import_saves).
+// as a zip (stone_export_saves, stone_import_saves). There original.dat is
+// packed from a zip of the original game the player adds on the page
+// (stone_add_original, web/original.js).
 #define SDL_MAIN_HANDLED
 #include <SDL3/SDL_audio.h>
 #include <SDL3/SDL_error.h>
@@ -26,6 +28,7 @@
 #include <SDL3/SDL_render.h>
 #include <SDL3/SDL_timer.h>
 #include "assets.hpp"
+#include "content.hpp"
 #include "package.hpp"
 #include "zip.hpp"
 #include "settings.hpp"
@@ -45,6 +48,8 @@
 #include <stdexcept>
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #endif
 
 namespace {
@@ -101,6 +106,12 @@ const char* const save_files[] = {"STONEAGE.ENH", "STONEAGE.HI", "FREEMAPS.HI", 
 // beside the player, or beside the folder the player is in. They are packed
 // once into original.dat beside the player. Empty when they are not there.
 std::string find_original_package(const std::string& base) {
+#ifdef __EMSCRIPTEN__
+    // In the browser there is no folder to look in: the page packs
+    // original.dat from the zip the player adds (add_original).
+    stone::Bytes unused;
+    return read(base + "original.dat", unused) ? base + "original.dat" : "";
+#else
     for (const std::string folder : {base + "original_data/", base + "../original_data/"}) {
         stone::Bytes unused;
         if (!read(folder + "SA_V1_00.EXE", unused))
@@ -118,6 +129,7 @@ std::string find_original_package(const std::string& base) {
         }
     }
     return "";
+#endif
 }
 
 // Everything the loop uses. The desktop calls step() in a loop; in the browser
@@ -211,8 +223,12 @@ Player::Player(int argc, char** argv) {
         throw std::runtime_error("Asset package not found. It is built by stone_assets.");
     if (path.empty() && !free_set) {
         const std::string original = find_original_package(score_directory);
-        if (!original.empty())
-            original_package.reset(new stone::Package(original));
+        try {
+            if (!original.empty())
+                original_package.reset(new stone::Package(original));
+        } catch (const std::exception& e) { // the free set still plays
+            std::cerr << "The original game files could not be used: " << e.what() << "\n";
+        }
     }
     // STONEAGE.ENH, empty when there is none: every default. A scripted
     // run keeps what it saves in memory, so it never changes the
@@ -384,10 +400,103 @@ void Player::finish() {
 }
 
 #ifdef __EMSCRIPTEN__
+bool same_name(const std::string& a, const std::string& b) {
+    return std::equal(a.begin(), a.end(), b.begin(), b.end(),
+                      [](char x, char y) { return std::toupper(x) == std::toupper(y); });
+}
+
+// Add the original game: /tmp/original.zip holds SA_V1_00.EXE and its eight
+// songs, at its top or in one folder, with names in any case. They are
+// written to /tmp/original_data/ under the names the executable gives them
+// and packed into /save/original.dat, as find_original_package does on the
+// desktop; only original.dat is kept.
+void add_original() {
+    stone::Bytes zip;
+    if (!read("/tmp/original.zip", zip))
+        throw std::runtime_error("The zip could not be read.");
+    std::remove("/tmp/original.zip");
+    const std::map<std::string, stone::Bytes> entries = stone::read_zip(zip);
+    zip.clear();
+    auto folder_of = [](const std::string& entry) {
+        return entry.substr(0, entry.find_last_of("/\\") + 1);
+    };
+    const stone::Bytes* exe = nullptr;
+    std::string folder;
+    for (const auto& entry : entries) {
+        const std::string in = folder_of(entry.first);
+        if (same_name(entry.first.substr(in.size()), "SA_V1_00.EXE") &&
+            std::count_if(in.begin(), in.end(), [](char c) { return c == '/' || c == '\\'; }) <= 1) {
+            exe = &entry.second;
+            folder = in;
+            break;
+        }
+    }
+    if (!exe)
+        throw std::runtime_error("The zip holds no SA_V1_00.EXE, at its top or in one folder.");
+    if (exe->size() != 452788 ||
+        stone::sha256(*exe) != "a979bc922b329297bbda2eb8b7f8375c466721bd439c9fd1b47a8db26444f927")
+        throw std::runtime_error("The zip's SA_V1_00.EXE is not the original Stone Age, version "
+                                 "1.00 (452,788 bytes).");
+    std::map<std::string, const stone::Bytes*> files = {{"SA_V1_00.EXE", exe}};
+    for (const std::string& song : stone::song_files(*exe)) {
+        for (const auto& entry : entries)
+            if (same_name(folder_of(entry.first), folder) &&
+                same_name(entry.first.substr(folder_of(entry.first).size()), song))
+                files[song] = &entry.second;
+        if (!files.count(song))
+            throw std::runtime_error("The zip lacks the song " + song +
+                                     "; the eight .CMF songs go beside SA_V1_00.EXE.");
+    }
+    const std::string loose = "/tmp/original_data/", packed = "/tmp/original.dat";
+    auto clean_up = [&] {
+        for (const auto& file : files)
+            std::remove((loose + file.first).c_str());
+        rmdir(loose.c_str());
+    };
+    stone::Bytes package;
+    mkdir(loose.c_str(), 0777);
+    try {
+        for (const auto& file : files)
+            stone::write_file(loose + file.first, *file.second);
+        stone::pack_original(loose + "SA_V1_00.EXE", packed);
+        stone::Package check(packed); // it opens, or the game would not start
+        package = stone::read_file(packed);
+    } catch (const std::exception& e) {
+        clean_up();
+        std::remove(packed.c_str());
+        throw std::runtime_error(std::string("The original game files could not be used: ") +
+                                 e.what());
+    }
+    clean_up();
+    std::remove(packed.c_str());
+    stone::write_file(save_directory + "original.dat", package);
+}
+
+// The page asked to add the original game; the next frame does it, as packing
+// runs the game's code on a fiber, which the browser's frame can swap to.
+bool original_asked = false;
+// The answer of the last add: empty, or what went wrong.
+std::string original_problem;
+bool game_ended = false;
+
 // The browser calls this once a frame. When the game ends (INT 21h/4Ch) the
-// page offers to play again in place of closing.
+// page offers to play again in place of closing; the frames go on, so the
+// original game can still be added.
 void step_frame(void* argument) {
     Player* const player = static_cast<Player*>(argument);
+    if (original_asked) {
+        original_asked = false;
+        try {
+            add_original();
+            original_problem.clear();
+        } catch (const std::exception& e) {
+            original_problem = e.what();
+        }
+        player->previous = SDL_GetTicksNS(); // the game does not catch up on the wait
+        EM_ASM({ Module.originalPacked(); });
+    }
+    if (game_ended)
+        return;
     try {
         if (player->step())
             return;
@@ -395,7 +504,7 @@ void step_frame(void* argument) {
     } catch (const std::exception& e) {
         std::cerr << e.what() << "\n";
     }
-    emscripten_cancel_main_loop();
+    game_ended = true;
     EM_ASM({
         if (Module.gameEnded)
             Module.gameEnded();
@@ -438,12 +547,9 @@ extern "C" EMSCRIPTEN_KEEPALIVE const char* stone_import_saves() {
         std::map<std::string, stone::Bytes> saves;
         for (auto& entry : stone::read_zip(zip)) {
             std::string name = entry.first.substr(entry.first.find_last_of("/\\") + 1);
-            for (const char* save : save_files) {
-                std::string wanted = save;
-                if (std::equal(name.begin(), name.end(), wanted.begin(), wanted.end(),
-                               [](char a, char b) { return std::toupper(a) == std::toupper(b); }))
-                    saves[wanted] = std::move(entry.second);
-            }
+            for (const char* save : save_files)
+                if (same_name(name, save))
+                    saves[save] = std::move(entry.second);
         }
         if (saves.empty())
             throw std::runtime_error("The zip holds no saves (STONEAGE.ENH, STONEAGE.HI, "
@@ -466,6 +572,15 @@ extern "C" EMSCRIPTEN_KEEPALIVE const char* stone_import_saves() {
         saves_problem = e.what();
     }
     return saves_problem.c_str();
+}
+#endif
+
+#ifdef __EMSCRIPTEN__
+// Add the original game from /tmp/original.zip: asked here, done at the next
+// frame, which then calls Module.originalPacked (web/original.js).
+extern "C" EMSCRIPTEN_KEEPALIVE void stone_add_original() { original_asked = true; }
+extern "C" EMSCRIPTEN_KEEPALIVE const char* stone_original_problem() {
+    return original_problem.c_str();
 }
 #endif
 

@@ -11,21 +11,29 @@
   #status { margin: 12px; }
   #ended[hidden] { display: none; }
   button { font: inherit; padding: 8px 16px; }
-  #saves { margin: 12px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .buttons { margin: 12px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .buttons [hidden] { display: none; }
 </style>
 </head>
 <body>
 <!-- The page around the game. Milestone 4 of WEB_PLAN.md gives it its final
-     form; this one shows the canvas, loading, the end of a game and the
-     saves' buttons (milestone 2). -->
+     form; this one shows the canvas, loading, the end of a game, the
+     saves' buttons (milestone 2) and the original game's (milestone 3). -->
 <canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
 <div id="status">Loading…</div>
 <div id="ended" hidden><button id="again">Play again</button></div>
 <!-- A browser may delete a site's storage: a zip of the saves keeps them. -->
-<div id="saves">
+<div class="buttons">
   <button id="export">Export saves</button>
   <button id="import">Import saves</button>
   <input id="import-file" type="file" accept=".zip,application/zip" hidden>
+</div>
+<!-- The original game's files, if the player has them: SA_V1_00.EXE and its
+     eight .CMF songs in a zip. They stay in this browser. -->
+<div class="buttons">
+  <button id="add-original">Add the original game (zip)</button>
+  <button id="remove-original" hidden>Remove the original game</button>
+  <input id="original-file" type="file" accept=".zip,application/zip" hidden>
 </div>
 <script>
   // The desktop player's options come from the page's address:
@@ -39,7 +47,10 @@
     arguments: ['original', 'free'].filter(function (name) { return options.has(name); })
                                    .map(function (name) { return '--' + name; }),
     setStatus: function (text) { statusLine.textContent = text; },
-    onRuntimeInitialized: function () { canvas.focus(); },
+    onRuntimeInitialized: function () {
+      document.getElementById('remove-original').hidden = !Module.hasOriginal();
+      canvas.focus();
+    },
     print: function (text) { console.log(text); },
     printErr: function (text) { console.error(text); },
     // The game ended (INT 21h/4Ch): play again in place of closing.
@@ -76,6 +87,34 @@
         else
           location.reload(); // the game reads the imported saves as it starts
       });
+    });
+  };
+  var originalFile = document.getElementById('original-file');
+  document.getElementById('add-original').onclick = function () { originalFile.click(); };
+  originalFile.onchange = function () {
+    var file = originalFile.files[0];
+    originalFile.value = '';
+    if (!file)
+      return;
+    statusLine.textContent = 'Preparing the original game…';
+    file.arrayBuffer().then(function (buffer) {
+      Module.addOriginal(new Uint8Array(buffer), function (problem) {
+        statusLine.textContent = '';
+        if (problem)
+          alert(problem);
+        else
+          location.reload(); // the game finds original.dat as it starts
+      });
+    });
+  };
+  document.getElementById('remove-original').onclick = function () {
+    if (!confirm('Remove the original game from this browser? The free set stays.'))
+      return;
+    Module.removeOriginal(function (problem) {
+      if (problem)
+        alert(problem);
+      else
+        location.reload();
     });
   };
   canvas.addEventListener('click', function () { canvas.focus(); });

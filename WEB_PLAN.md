@@ -5,7 +5,7 @@ Actions builds it on every push to `main` and publishes it on GitHub Pages.
 The site plays with the free assets in `assets/`. A player who owns the
 original game can add a zip of its files on the page; the zip stays in their
 browser and never reaches the server. Each milestone below ends with the
-check that shows it is done; milestones 1 and 2 are done.
+check that shows it is done; milestones 1 to 3 are done.
 
 ## Decisions
 
@@ -134,6 +134,30 @@ no key script that clears a free map is in the repository yet.
 **Done when:** with a zip of the original, Options F2 switches images, maps
 and music to ORIG, and the choice and the scores in `STONEAGE.HI` survive a
 reload. A zip with a wrong executable is refused with a message.
+
+**Done.** `web/original.js` (a second `--pre-js`) gives the page
+`Module.addOriginal`, `Module.removeOriginal` and `Module.hasOriginal`.
+`stone_add_original` only asks: packing runs the game's code on fibers
+(`PaletteProbe` in `assets.cpp`), so the next browser frame does it in
+`play.cpp`'s `add_original`, as the game's own ticks are run, and then calls
+`Module.originalPacked`. The frames now go on after the game ends, so the
+zip can still be added then. The executable is found at the zip's top or in
+one folder; its size and SHA-256 (`stone::sha256`, checked by
+`stone_tests`) are checked before anything is written, and the songs are
+looked for beside it under the names it gives. On the web
+`find_original_package` takes `/save/original.dat` as it is, and one that
+does not open is left out with a message in the console, so the free set
+still plays. **Remove the original game** shows only while `original.dat`
+is there and asks first.
+
+Checked in Chromium with Playwright: a zip without the executable, one with
+it two folders deep, and one with a 452,788-byte executable that is not the
+original are each refused with a message, and leave nothing in `/save` or
+`/tmp`; an `original.dat` put in `/save` is found after a reload, and
+**Remove the original game** deletes it from IndexedDB. The original game
+is not in the repository, so packing a real zip of it in the browser is
+still to be checked by someone who has it: Options F2 should then offer
+ORIG.
 
 ### 4. The page
 
