@@ -12,6 +12,7 @@
 !/CMakePresets.json
 !/build.ps1
 !/src/
+!/web/
 !/tests/
 !/.claude/
 !/assets/

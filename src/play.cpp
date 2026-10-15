@@ -36,6 +36,9 @@
 #include <iostream>
 #include <memory>
 #include <stdexcept>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 namespace {
 // Unicode -> code page 437, 80h..A0h: the characters name entry accepts.
@@ -103,236 +106,295 @@ std::string find_original_package(const std::string& base) {
     }
     return "";
 }
+
+// Everything the loop uses. The desktop calls step() in a loop; in the browser
+// it runs once per frame.
+struct Player {
+    std::string screenshot;
+    long scripted_ticks = -1;
+    std::vector<std::pair<long, uint8_t>> keys; // tick, scan byte
+    bool scripted = false;
+    std::string score_directory;
+    std::unique_ptr<stone::Package> free_package, original_package;
+    stone::Bytes settings_file;
+    // Each part from the set STONEAGE.ENH chooses for it.
+    const stone::Package* parts[stone::Settings::parts] = {};
+    std::unique_ptr<stone::Assets> assets;
+    SDL_Window* window = nullptr;
+    SDL_Renderer* renderer = nullptr;
+    std::unique_ptr<stone::GameView> view;
+    std::unique_ptr<stone::MusicSynth> music;
+    SDL_AudioStream* stream = nullptr;
+    std::string song_name;
+    stone::Machine machine;
+    stone::HostTickClock clock;
+    uint64_t previous = 0;
+    uint8_t scan = 0;
+    bool quit = false, focused = true, typing = false;
+    long ticks = 0;
+    std::size_t next_key = 0;
+    stone::Image image;
+
+    Player(int argc, char** argv);
+    ~Player();
+    Player(const Player&) = delete;
+    Player& operator=(const Player&) = delete;
+    void choose_assets();
+    // STONEAGE.HI is the original's file, so only its maps' scores go there.
+    std::string score_file(const std::string& name) const {
+        const bool free_maps = parts[stone::Settings::maps] == free_package.get();
+        return score_directory + (free_maps && name == "STONEAGE.HI" ? "FREEMAPS.HI" : name);
+    }
+    void play_song();
+    // One pass of the loop: events, ticks, the picture and sound. False when
+    // the run is over.
+    bool step();
+    void finish();
+};
+
+Player::Player(int argc, char** argv) {
+    std::string path;
+    bool free_set = false, original = false;
+    for (int i = 1; i < argc; ++i) {
+        const std::string arg = argv[i];
+        if (arg == "--ticks" && i + 1 < argc)
+            scripted_ticks = std::stol(argv[++i]);
+        else if (arg == "--keys" && i + 1 < argc) {
+            std::ifstream file(argv[++i]);
+            if (!file)
+                throw std::runtime_error(std::string("Cannot read ") + argv[i]);
+            long tick;
+            std::string scan;
+            while (file >> tick >> scan)
+                keys.emplace_back(tick, uint8_t(std::stoul(scan, nullptr, 16)));
+            std::stable_sort(keys.begin(), keys.end(),
+                             [](const std::pair<long, uint8_t>& a,
+                                const std::pair<long, uint8_t>& b) { return a.first < b.first; });
+        } else if (arg == "--screenshot" && i + 1 < argc)
+            screenshot = argv[++i];
+        else if (arg == "--free")
+            free_set = true;
+        else if (arg == "--original")
+            original = true;
+        else if (!arg.empty() && arg[0] != '-')
+            path = arg;
+        else
+            throw std::runtime_error(
+                "Usage: stone_play [package] [--free] [--original] [--ticks N] "
+                "[--keys FILE] [--screenshot FILE.bmp]");
+    }
+    scripted = scripted_ticks >= 0;
+    // Game files come from the asset packages; new scores and settings
+    // are stored beside the player.
+    const char* base = SDL_GetBasePath();
+    score_directory = base ? base : "";
+    free_package.reset(
+        new stone::Package(path.empty() ? score_directory + "stoneage.dat" : path));
+    if (!free_package->packed())
+        throw std::runtime_error("Asset package not found. It is built by stone_assets.");
+    if (path.empty() && !free_set) {
+        const std::string original = find_original_package(score_directory);
+        if (!original.empty())
+            original_package.reset(new stone::Package(original));
+    }
+    // STONEAGE.ENH, empty when there is none: every default. A scripted
+    // run keeps what it saves in memory, so it never changes the
+    // player's progress (ENHANCEMENTS.md, rule 5).
+    read(score_directory + stone::Settings::file_name, settings_file);
+    choose_assets();
+
+    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_AUDIO))
+        throw std::runtime_error(SDL_GetError());
+    if (!SDL_CreateWindowAndRenderer("Stone Age", 960, 600,
+                                     SDL_WINDOW_RESIZABLE | (scripted ? SDL_WINDOW_HIDDEN : 0),
+                                     &window, &renderer))
+        throw std::runtime_error(SDL_GetError());
+    view.reset(new stone::GameView(renderer));
+
+    assets->install(machine);
+    machine.original_assets = original_package != nullptr;
+    machine.change_assets = [this](stone::Machine& cpu) {
+        choose_assets();
+        assets->install(cpu);
+    };
+    const auto now = std::time(nullptr);
+    const auto local = std::localtime(&now);
+    machine.seconds = scripted || !local ? 0 : unsigned(local->tm_sec);
+    // Music: the game asks the FX driver (INT 64h) to load, play and stop songs.
+    machine.driver = [this](stone::Machine& cpu) {
+        if (cpu.ax == 0) // load the file named at BX:CX
+            song_name = cpu.text(cpu.bx, cpu.cx);
+        else if (cpu.ax == 1) // play
+            play_song();
+        else if (!music)
+            return;
+        else if (cpu.ax == 0x1b) // the music fades out, this fast
+            music->fade_step(cpu.bx);
+        else if (cpu.ax == 0x19)
+            music->fade_out();
+        else if (cpu.ax == 5) // silence
+            music->reset();
+    };
+    machine.load_file = [this](const std::string& name, stone::Bytes& data) {
+        if (name == stone::Settings::file_name) {
+            data = settings_file;
+            return !data.empty();
+        }
+        // Without a saved table the game keeps the one built into it.
+        return read(score_file(name), data);
+    };
+    machine.save_file = [this](const std::string& name, const stone::Bytes& data) {
+        if (name == stone::Settings::file_name) {
+            settings_file = data;
+            if (scripted)
+                return;
+        }
+        stone::write_file(score_file(name), data);
+    };
+    machine.enhanced = !original && stone::Settings(settings_file).enhanced();
+    machine.display = stone::Settings(settings_file).display();
+    machine.start(); // the game ends through INT 21h/4Ch
+    previous = SDL_GetTicksNS();
+}
+
+Player::~Player() {
+    if (stream)
+        SDL_DestroyAudioStream(stream);
+    view.reset();
+    if (renderer)
+        SDL_DestroyRenderer(renderer);
+    if (window)
+        SDL_DestroyWindow(window);
+    SDL_Quit();
+}
+
+void Player::choose_assets() {
+    const stone::Settings settings(settings_file);
+    for (unsigned n = 0; n < stone::Settings::parts; ++n)
+        parts[n] = original_package && settings.original(stone::Settings::Part(n))
+                       ? original_package.get()
+                       : free_package.get();
+    assets.reset(new stone::Assets(*parts[stone::Settings::images], *parts[stone::Settings::maps],
+                                   *parts[stone::Settings::music]));
+}
+
+void Player::play_song() {
+    stone::Bytes file;
+    if (!parts[stone::Settings::music]->read(song_name, file))
+        return;
+    auto song = stone::parse_song(file);
+    if (music)
+        music->replace_song(song);
+    else {
+        music.reset(new stone::MusicSynth(song));
+        SDL_AudioSpec spec = {SDL_AUDIO_S16, 1, music->sample_rate()};
+        stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr,
+                                           nullptr);
+        if (stream)
+            SDL_ResumeAudioStreamDevice(stream);
+        else
+            std::cerr << "Audio unavailable: " << SDL_GetError() << "\n";
+    }
+    if (stream)
+        SDL_ClearAudioStream(stream);
+}
+
+bool Player::step() {
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+        if (event.type == SDL_EVENT_QUIT)
+            quit = true;
+        else if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
+            // Not original: without focus the game stands still, and a held
+            // key is released because its key-up would never arrive.
+            focused = false;
+            if (scan && !(scan & 128))
+                scan |= 128;
+        } else if (event.type == SDL_EVENT_WINDOW_FOCUS_GAINED) {
+            focused = true;
+            clock.reset();
+        } else if (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP) {
+            const uint8_t code = stone::dos_scan(event.key.scancode);
+            if (code && !event.key.repeat)
+                scan = event.type == SDL_EVENT_KEY_DOWN ? code : uint8_t(code | 128);
+            if (event.type == SDL_EVENT_KEY_DOWN && machine.reads_characters())
+                type_key(machine, event.key);
+        } else if (event.type == SDL_EVENT_TEXT_INPUT && machine.reads_characters())
+            type_text(machine, event.text.text);
+    }
+    if (machine.reads_characters() != typing) {
+        typing = !typing;
+        if (typing)
+            SDL_StartTextInput(window);
+        else
+            SDL_StopTextInput(window);
+    }
+    const auto current = SDL_GetTicksNS();
+    if (focused)
+        clock.add(current - previous, scripted);
+    previous = current;
+    bool advanced = image.rgb.empty();
+    while (clock.next() && !machine.finished()) {
+        for (; next_key < keys.size() && keys[next_key].first <= ticks; ++next_key)
+            scan = keys[next_key].second;
+        machine.tick(scan);
+        ++ticks;
+        advanced = true;
+    }
+    if (advanced) {
+        image = machine.frame();
+        view->update(image);
+    }
+    view->present(machine.enhanced, machine.display);
+    if (stream && !scripted)
+        while (SDL_GetAudioStreamQueued(stream) < music->sample_rate() / 5) {
+            auto samples = music->generate(music->sample_rate() / 20);
+            if (!SDL_PutAudioStreamData(stream, samples.data(), int(samples.size() * 2)))
+                throw std::runtime_error(SDL_GetError());
+        }
+    return !quit && !machine.finished() && !(scripted && ticks >= scripted_ticks);
+}
+
+void Player::finish() {
+    if (!screenshot.empty())
+        stone::write_bmp(screenshot, image);
+    if (scripted)
+        std::cout << "SDL host ran " << ticks << " ticks.\n";
+}
+
+#ifdef __EMSCRIPTEN__
+// The browser calls this once a frame. When the game ends (INT 21h/4Ch) the
+// page offers to play again in place of closing.
+void step_frame(void* argument) {
+    Player* const player = static_cast<Player*>(argument);
+    try {
+        if (player->step())
+            return;
+        player->finish();
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << "\n";
+    }
+    emscripten_cancel_main_loop();
+    EM_ASM({
+        if (Module.gameEnded)
+            Module.gameEnded();
+    });
+}
+#endif
 } // namespace
 
 int main(int argc, char** argv) {
     try {
-        std::string path, screenshot;
-        long scripted_ticks = -1;
-        std::vector<std::pair<long, uint8_t>> keys; // tick, scan byte
-        bool free_set = false, original = false;
-        for (int i = 1; i < argc; ++i) {
-            const std::string arg = argv[i];
-            if (arg == "--ticks" && i + 1 < argc)
-                scripted_ticks = std::stol(argv[++i]);
-            else if (arg == "--keys" && i + 1 < argc) {
-                std::ifstream file(argv[++i]);
-                if (!file)
-                    throw std::runtime_error(std::string("Cannot read ") + argv[i]);
-                long tick;
-                std::string scan;
-                while (file >> tick >> scan)
-                    keys.emplace_back(tick, uint8_t(std::stoul(scan, nullptr, 16)));
-                std::stable_sort(keys.begin(), keys.end(),
-                                 [](const std::pair<long, uint8_t>& a,
-                                    const std::pair<long, uint8_t>& b) { return a.first < b.first; });
-            } else if (arg == "--screenshot" && i + 1 < argc)
-                screenshot = argv[++i];
-            else if (arg == "--free")
-                free_set = true;
-            else if (arg == "--original")
-                original = true;
-            else if (!arg.empty() && arg[0] != '-')
-                path = arg;
-            else
-                throw std::runtime_error(
-                    "Usage: stone_play [package] [--free] [--original] [--ticks N] "
-                    "[--keys FILE] [--screenshot FILE.bmp]");
-        }
-        const bool scripted = scripted_ticks >= 0;
-        // Game files come from the asset packages; new scores and settings
-        // are stored beside the player.
-        const char* base = SDL_GetBasePath();
-        const std::string score_directory = base ? base : "";
-        const stone::Package free_package(path.empty() ? score_directory + "stoneage.dat" : path);
-        if (!free_package.packed())
-            throw std::runtime_error("Asset package not found. It is built by stone_assets.");
-        std::unique_ptr<stone::Package> original_package;
-        if (path.empty() && !free_set) {
-            const std::string original = find_original_package(score_directory);
-            if (!original.empty())
-                original_package.reset(new stone::Package(original));
-        }
-        // STONEAGE.ENH, empty when there is none: every default. A scripted
-        // run keeps what it saves in memory, so it never changes the
-        // player's progress (ENHANCEMENTS.md, rule 5).
-        stone::Bytes settings_file;
-        read(score_directory + stone::Settings::file_name, settings_file);
-        // Each part from the set STONEAGE.ENH chooses for it.
-        const stone::Package* parts[stone::Settings::parts];
-        std::unique_ptr<stone::Assets> assets;
-        auto choose_assets = [&]() {
-            const stone::Settings settings(settings_file);
-            for (unsigned n = 0; n < stone::Settings::parts; ++n)
-                parts[n] = original_package && settings.original(stone::Settings::Part(n))
-                               ? original_package.get()
-                               : &free_package;
-            assets.reset(new stone::Assets(*parts[stone::Settings::images],
-                                           *parts[stone::Settings::maps],
-                                           *parts[stone::Settings::music]));
-        };
-        choose_assets();
-        const stone::Package* const& song_package = parts[stone::Settings::music];
-        // STONEAGE.HI is the original's file, so only its maps' scores go there.
-        auto score_file = [&](const std::string& name) {
-            const bool free_maps = parts[stone::Settings::maps] == &free_package;
-            return score_directory + (free_maps && name == "STONEAGE.HI" ? "FREEMAPS.HI" : name);
-        };
-
-        if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_AUDIO))
-            throw std::runtime_error(SDL_GetError());
-        SDL_Window* window = nullptr;
-        SDL_Renderer* renderer = nullptr;
-        if (!SDL_CreateWindowAndRenderer("Stone Age", 960, 600,
-                                         SDL_WINDOW_RESIZABLE | (scripted ? SDL_WINDOW_HIDDEN : 0),
-                                         &window, &renderer))
-            throw std::runtime_error(SDL_GetError());
-        std::unique_ptr<stone::GameView> view(new stone::GameView(renderer));
-
-        // Music: the game asks the FX driver (INT 64h) to load, play and stop songs.
-        std::unique_ptr<stone::MusicSynth> music;
-        SDL_AudioStream* stream = nullptr;
-        std::string song_name;
-        auto play_song = [&]() {
-            stone::Bytes file;
-            if (!song_package->read(song_name, file))
-                return;
-            auto song = stone::parse_song(file);
-            if (music)
-                music->replace_song(song);
-            else {
-                music.reset(new stone::MusicSynth(song));
-                SDL_AudioSpec spec = {SDL_AUDIO_S16, 1, music->sample_rate()};
-                stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec,
-                                                   nullptr, nullptr);
-                if (stream)
-                    SDL_ResumeAudioStreamDevice(stream);
-                else
-                    std::cerr << "Audio unavailable: " << SDL_GetError() << "\n";
-            }
-            if (stream)
-                SDL_ClearAudioStream(stream);
-        };
-
-        stone::Machine machine;
-        assets->install(machine);
-        machine.original_assets = original_package != nullptr;
-        machine.change_assets = [&](stone::Machine& cpu) {
-            choose_assets();
-            assets->install(cpu);
-        };
-        const auto now = std::time(nullptr);
-        const auto local = std::localtime(&now);
-        machine.seconds = scripted || !local ? 0 : unsigned(local->tm_sec);
-        machine.driver = [&](stone::Machine& cpu) {
-            if (cpu.ax == 0) // load the file named at BX:CX
-                song_name = cpu.text(cpu.bx, cpu.cx);
-            else if (cpu.ax == 1) // play
-                play_song();
-            else if (!music)
-                return;
-            else if (cpu.ax == 0x1b) // the music fades out, this fast
-                music->fade_step(cpu.bx);
-            else if (cpu.ax == 0x19)
-                music->fade_out();
-            else if (cpu.ax == 5) // silence
-                music->reset();
-        };
-        machine.load_file = [&](const std::string& name, stone::Bytes& data) {
-            if (name == stone::Settings::file_name) {
-                data = settings_file;
-                return !data.empty();
-            }
-            // Without a saved table the game keeps the one built into it.
-            return read(score_file(name), data);
-        };
-        machine.save_file = [&](const std::string& name, const stone::Bytes& data) {
-            if (name == stone::Settings::file_name) {
-                settings_file = data;
-                if (scripted)
-                    return;
-            }
-            stone::write_file(score_file(name), data);
-        };
-        machine.enhanced = !original && stone::Settings(settings_file).enhanced();
-        machine.display = stone::Settings(settings_file).display();
-        machine.start(); // the game ends through INT 21h/4Ch
-
-        stone::HostTickClock clock;
-        uint64_t previous = SDL_GetTicksNS();
-        uint8_t scan = 0;
-        bool quit = false, focused = true, typing = false;
-        long ticks = 0;
-        std::size_t next_key = 0;
-        stone::Image image;
-        while (!quit && !machine.finished()) {
-            SDL_Event event;
-            while (SDL_PollEvent(&event)) {
-                if (event.type == SDL_EVENT_QUIT)
-                    quit = true;
-                else if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
-                    // Not original: without focus the game stands still, and a held
-                    // key is released because its key-up would never arrive.
-                    focused = false;
-                    if (scan && !(scan & 128))
-                        scan |= 128;
-                } else if (event.type == SDL_EVENT_WINDOW_FOCUS_GAINED) {
-                    focused = true;
-                    clock.reset();
-                } else if (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP) {
-                    const uint8_t code = stone::dos_scan(event.key.scancode);
-                    if (code && !event.key.repeat)
-                        scan = event.type == SDL_EVENT_KEY_DOWN ? code : uint8_t(code | 128);
-                    if (event.type == SDL_EVENT_KEY_DOWN && machine.reads_characters())
-                        type_key(machine, event.key);
-                } else if (event.type == SDL_EVENT_TEXT_INPUT && machine.reads_characters())
-                    type_text(machine, event.text.text);
-            }
-            if (machine.reads_characters() != typing) {
-                typing = !typing;
-                if (typing)
-                    SDL_StartTextInput(window);
-                else
-                    SDL_StopTextInput(window);
-            }
-            const auto current = SDL_GetTicksNS();
-            if (focused)
-                clock.add(current - previous, scripted);
-            previous = current;
-            bool advanced = image.rgb.empty();
-            while (clock.next() && !machine.finished()) {
-                for (; next_key < keys.size() && keys[next_key].first <= ticks; ++next_key)
-                    scan = keys[next_key].second;
-                machine.tick(scan);
-                ++ticks;
-                advanced = true;
-            }
-            if (advanced) {
-                image = machine.frame();
-                view->update(image);
-            }
-            view->present(machine.enhanced, machine.display);
-            if (stream && !scripted)
-                while (SDL_GetAudioStreamQueued(stream) < music->sample_rate() / 5) {
-                    auto samples = music->generate(music->sample_rate() / 20);
-                    if (!SDL_PutAudioStreamData(stream, samples.data(), int(samples.size() * 2)))
-                        throw std::runtime_error(SDL_GetError());
-                }
-            if (scripted && ticks >= scripted_ticks)
-                break;
-            if (!scripted)
+#ifdef __EMSCRIPTEN__
+        // The player lives as long as the page; main returns at once.
+        emscripten_set_main_loop_arg(step_frame, new Player(argc, argv), 0, false);
+#else
+        Player player(argc, argv);
+        while (player.step())
+            if (!player.scripted)
                 SDL_Delay(1);
-        }
-        if (!screenshot.empty())
-            stone::write_bmp(screenshot, image);
-        if (scripted)
-            std::cout << "SDL host ran " << ticks << " ticks.\n";
-        if (stream)
-            SDL_DestroyAudioStream(stream);
-        view.reset();
-        SDL_DestroyRenderer(renderer);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
+        player.finish();
+#endif
         return 0;
     } catch (const std::exception& e) {
         std::cerr << e.what() << "\n";

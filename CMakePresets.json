@@ -22,6 +22,18 @@
       "cacheVariables": { "STONE_BUILD_PLAYER": "OFF", "STONE_BUILD_TESTS": "OFF" }
     },
     {
+      "name": "wasm",
+      "displayName": "Web player in build/web (configure with emcmake; needs the core preset's package)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/cmake-wasm",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "STONE_BUILD_PLAYER": "ON",
+        "STONE_BUILD_TESTS": "OFF",
+        "STONE_PACKAGE": "${sourceDir}/build/stoneage.dat"
+      }
+    },
+    {
       "name": "test",
       "displayName": "Player and tests (needs research/ and original_data/)",
       "inherits": "default",
@@ -32,6 +44,7 @@
     { "name": "default", "configurePreset": "default", "configuration": "Release" },
     { "name": "ninja", "configurePreset": "ninja" },
     { "name": "core", "configurePreset": "core", "configuration": "Release" },
+    { "name": "wasm", "configurePreset": "wasm" },
     { "name": "test", "configurePreset": "test", "configuration": "Release" }
   ],
   "testPresets": [

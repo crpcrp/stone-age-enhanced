@@ -1,13 +1,62 @@
 #include "machine.hpp"
 #include "game.hpp"
 #include <algorithm>
+#include <stdexcept>
+#ifdef __EMSCRIPTEN__
+#include <emscripten/fiber.h>
+#else
 #include <condition_variable>
 #include <mutex>
-#include <stdexcept>
 #include <thread>
+#endif
 
 namespace stone {
 #include "game_data.inc"
+#ifdef __EMSCRIPTEN__
+// Readable code may wait for ticks in the middle of a routine, so it runs on a
+// fiber of its own (the browser gives no threads without cross-origin
+// isolation). That fiber and the code calling tick() take turns, as the
+// desktop's thread does. A routine left waiting is never resumed: its fiber
+// and stacks are freed with the machine.
+struct Machine::Turns {
+    std::function<uint16_t()> body;
+    emscripten_fiber_t caller, routine;
+    std::vector<char> routine_stack = std::vector<char>(1 << 20),
+                      caller_unwind = std::vector<char>(1 << 20),
+                      routine_unwind = std::vector<char>(1 << 20);
+    bool routine_runs = false, done = false;
+    uint16_t next = 0; // where the code continues after the routine
+    std::exception_ptr failure;
+    static void run(void* argument) {
+        Turns* const turns = static_cast<Turns*>(argument);
+        try {
+            turns->next = turns->body();
+        } catch (...) {
+            turns->failure = std::current_exception();
+        }
+        turns->done = true;
+        turns->routine_runs = false;
+        emscripten_fiber_swap(&turns->routine, &turns->caller); // never comes back
+    }
+    explicit Turns(std::function<uint16_t()> body) : body(std::move(body)) {
+        emscripten_fiber_init_from_current_context(&caller, caller_unwind.data(),
+                                                   caller_unwind.size());
+        emscripten_fiber_init(&routine, run, this, routine_stack.data(), routine_stack.size(),
+                              routine_unwind.data(), routine_unwind.size());
+    }
+    // Gives the turn to the other side; returns when it comes back.
+    void pass(bool to_routine) {
+        routine_runs = to_routine;
+        if (to_routine)
+            emscripten_fiber_swap(&caller, &routine);
+        else
+            emscripten_fiber_swap(&routine, &caller);
+    }
+};
+void Machine::begin_thread(std::function<uint16_t()> body) {
+    waiting.turns = std::make_shared<Turns>(std::move(body));
+}
+#else
 // Readable code may wait for ticks in the middle of a routine, so it runs on a
 // thread of its own. That thread and the one calling tick() take turns: only
 // one of them ever runs.
@@ -36,6 +85,28 @@ struct Machine::Turns {
 namespace {
 struct Abandoned {}; // thrown through a waiting routine to end its thread
 } // namespace
+void Machine::begin_thread(std::function<uint16_t()> body) {
+    waiting.turns = std::make_shared<Turns>();
+    Turns* const turns = waiting.turns.get();
+    turns->thread = std::thread([body, turns] {
+        {
+            std::unique_lock<std::mutex> lock(turns->mutex);
+            turns->changed.wait(lock, [&] { return turns->routine_runs; });
+        }
+        try {
+            if (!turns->abandoned)
+                turns->next = body();
+        } catch (const Abandoned&) {
+        } catch (...) {
+            turns->failure = std::current_exception();
+        }
+        std::lock_guard<std::mutex> lock(turns->mutex);
+        turns->done = true;
+        turns->routine_runs = false;
+        turns->changed.notify_all();
+    });
+}
+#endif
 Machine::Machine() : memory(0x110000) {
     // Records of offset, length, bytes; relocated for load_segment by the generator.
     for (const uint8_t* p = program_data;;) {
@@ -134,27 +205,6 @@ void Machine::tick(uint8_t scan) {
     else if (take_turns() == stop_address)
         ip = stop_address;
 }
-void Machine::begin_thread(std::function<uint16_t()> body) {
-    waiting.turns = std::make_shared<Turns>();
-    Turns* const turns = waiting.turns.get();
-    turns->thread = std::thread([body, turns] {
-        {
-            std::unique_lock<std::mutex> lock(turns->mutex);
-            turns->changed.wait(lock, [&] { return turns->routine_runs; });
-        }
-        try {
-            if (!turns->abandoned)
-                turns->next = body();
-        } catch (const Abandoned&) {
-        } catch (...) {
-            turns->failure = std::current_exception();
-        }
-        std::lock_guard<std::mutex> lock(turns->mutex);
-        turns->done = true;
-        turns->routine_runs = false;
-        turns->changed.notify_all();
-    });
-}
 // Lets the waiting routine run until it waits for the next tick or ends.
 uint16_t Machine::take_turns() {
     Turns& turns = *waiting.turns;
@@ -174,8 +224,10 @@ void Machine::give_turn_back() {
     if (!turns || !turns->routine_runs)
         throw std::runtime_error("Readable code waited outside its thread");
     turns->pass(false);
+#ifndef __EMSCRIPTEN__
     if (turns->abandoned)
         throw Abandoned();
+#endif
 }
 void Machine::wait_tick() {
     in(0x3da); // the original polls the retrace bit here, which this does not have
