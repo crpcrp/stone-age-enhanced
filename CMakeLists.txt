@@ -119,7 +119,7 @@ if(STONE_BUILD_PLAYER)
         FetchContent_MakeAvailable(SDL3)
     endif()
 
-    # ymfm's YM3812, unmodified, from third_party/ymfm (BSD 3-Clause).
+    # ymfm's YM3812, with one change (its README), from third_party/ymfm (BSD 3-Clause).
     add_library(ymfm third_party/ymfm/ymfm_opl.cpp third_party/ymfm/ymfm_adpcm.cpp
         third_party/ymfm/ymfm_pcm.cpp)
     target_include_directories(ymfm SYSTEM PUBLIC third_party/ymfm)
