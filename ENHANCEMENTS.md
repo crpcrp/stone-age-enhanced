@@ -44,6 +44,11 @@ next. The code refers to the entries here by number (`ENHANCEMENTS.md, E1`).
 Options F1 switches it. It is saved as `enhanced 1|0` and is on when the
 file has no such line. `stone_play --original` turns it off for one run.
 
+While it is on, LIGHT (menu F6: double time, a quarter of the time bonus)
+is saved as `light 1|0` whenever F6 switches it, and an enhanced run
+starts with it as it was left. With enhanced mode off it starts off and
+is not saved, as in the original.
+
 ## E1: map selector (done)
 
 F2 in the menu shows all 100 maps as miniatures, 20 to a page, and starts a

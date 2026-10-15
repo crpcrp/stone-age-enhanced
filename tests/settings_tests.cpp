@@ -144,6 +144,19 @@ void display() {
     CHECK(Settings(settings.bytes()).display() == Settings::crt);
 }
 
+// E0: LIGHT, off unless the line says 1.
+void light() {
+    using stone::Settings;
+    CHECK(!Settings().light());
+    CHECK(Settings(bytes("light 1\n")).light());
+    CHECK(!Settings(bytes("light 0\n")).light());
+    CHECK(!Settings(bytes("light yes\n")).light());
+    Settings settings;
+    settings.set_light(true);
+    settings.set_light(false);
+    CHECK(text(settings.bytes()) == "light 0\n");
+}
+
 void unknown_lines_kept() {
     stone::Settings settings(bytes("future 1 2 3\nenhanced 1\n# note\n"));
     settings.set_enhanced(false);
@@ -163,6 +176,7 @@ int main() {
     statistics();
     bad_statistics();
     display();
+    light();
     unknown_lines_kept();
     if (!failures)
         std::cout << "settings_tests passed\n";
