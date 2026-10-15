@@ -33,6 +33,18 @@ public:
     // (ENHANCEMENTS.md, E2). 0 without the line or with a bad value.
     unsigned last(uint32_t levels) const;
     void set_last(uint32_t levels, unsigned level);
+    // `best <crc> <level> <ticks> <points>`: the best result on a map of that
+    // level set (ENHANCEMENTS.md, E3), the fewest ticks and the most points,
+    // each from any run that cleared it. A map with one has been cleared.
+    struct Best {
+        unsigned ticks = 0, points = 0; // ticks 0: none
+        bool cleared() const { return ticks != 0; }
+    };
+    Best best(uint32_t levels, unsigned level) const;
+    // A run that cleared the map, kept where it beats the best. Returns which
+    // parts it beat: `faster`, `higher`, both or 0.
+    static const unsigned faster = 1, higher = 2;
+    unsigned improve_best(uint32_t levels, unsigned level, unsigned ticks, unsigned points);
 
 private:
     // The value of the first line `key ...`; false when there is none.

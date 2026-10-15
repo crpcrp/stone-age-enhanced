@@ -1,4 +1,5 @@
 #include "settings.hpp"
+#include <algorithm>
 #include <cstdio>
 
 namespace stone {
@@ -76,6 +77,53 @@ unsigned Settings::last(uint32_t levels) const { return level("last", levels); }
 
 void Settings::set_last(uint32_t levels, unsigned level) {
     set(level_key("last", levels), std::to_string(level));
+}
+
+namespace {
+std::string best_key(uint32_t levels, unsigned level) {
+    char text[32];
+    std::snprintf(text, sizeof text, "best %08x %u", unsigned(levels), level);
+    return text;
+}
+
+// A number of up to nine digits; false for anything else.
+bool read_number(const std::string& text, unsigned& number) {
+    if (text.empty() || text.size() > 9 || text.find_first_not_of("0123456789") != std::string::npos)
+        return false;
+    number = unsigned(std::stoul(text));
+    return true;
+}
+} // namespace
+
+Settings::Best Settings::best(uint32_t levels, unsigned level) const {
+    std::string value;
+    Best best;
+    if (!find(best_key(levels, level), value))
+        return best;
+    const std::size_t space = value.find(' ');
+    if (space == std::string::npos || !read_number(value.substr(0, space), best.ticks) ||
+        !read_number(value.substr(space + 1), best.points))
+        return Best();
+    return best;
+}
+
+unsigned Settings::improve_best(uint32_t levels, unsigned level, unsigned ticks,
+                                unsigned points) {
+    Best best = this->best(levels, level);
+    const bool first = !best.cleared();
+    ticks = std::max(ticks, 1u);
+    unsigned beaten = 0;
+    if (first || ticks < best.ticks) {
+        best.ticks = ticks;
+        beaten |= faster;
+    }
+    if (first || points > best.points) {
+        best.points = points;
+        beaten |= higher;
+    }
+    if (beaten)
+        set(best_key(levels, level), std::to_string(best.ticks) + ' ' + std::to_string(best.points));
+    return beaten;
 }
 
 bool Settings::find(const std::string& key, std::string& value) const {

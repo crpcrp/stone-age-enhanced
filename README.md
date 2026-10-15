@@ -58,7 +58,9 @@ in one folder. [BUILDING.md](BUILDING.md) has more detail.
 - **In the menus:** the function keys shown on screen.
 - **Maps (F2):** every map reached so far, 20 to a page. The arrow keys,
   PgUp/PgDn, Home and End choose one; Enter or Space plays it from there
-  with a new score and five lives. Maps not reached yet show as grey. Tab
+  with a new score and five lives. Maps not reached yet show as grey;
+  cleared ones have a yellow corner, and the top line shows the chosen
+  map's best time and best points. Tab
   or P opens the password screen of the original (passwords still work
   there), Esc goes back.
 - **Options (F5):** F1 enhanced mode, F2 assets, F3 full background, F4
@@ -73,8 +75,11 @@ in one folder. [BUILDING.md](BUILDING.md) has more detail.
   are the levels with their passwords; music is the songs with their titles
   in the jukebox.
 
-The furthest map reached, for each set of levels, the enhanced-mode setting
-and the asset choices are kept in `STONEAGE.ENH` beside the player. The high
+The furthest map reached and the best result on each map cleared (time
+from arrival to exit, pauses left out, and points including the bonus),
+for each set of levels, the enhanced-mode setting
+and the asset choices are kept in `STONEAGE.ENH` beside the player. Games
+started after MAYDAY record no bests. The high
 scores of the original maps stay in the original's `STONEAGE.HI`; those of
 the free maps are in `FREEMAPS.HI`.
 

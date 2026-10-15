@@ -55,6 +55,35 @@ void last_map() {
     CHECK(text(settings.bytes()) == "reached 12345678 30\nlast 12345678 14\nlast deadbeef 3\n");
 }
 
+// E3: the fewest ticks and the most points, kept apart and only improved.
+void bests() {
+    using stone::Settings;
+    Settings settings;
+    CHECK(!settings.best(set_a, 12).cleared());
+    CHECK(settings.improve_best(set_a, 12, 2891, 1250) == (Settings::faster | Settings::higher));
+    CHECK(settings.improve_best(set_a, 12, 3000, 1300) == Settings::higher);
+    CHECK(settings.improve_best(set_a, 12, 2500, 900) == Settings::faster);
+    CHECK(settings.improve_best(set_a, 12, 2500, 1300) == 0);
+    CHECK(settings.improve_best(set_a, 1, 700, 0) == (Settings::faster | Settings::higher));
+    CHECK(settings.improve_best(set_b, 12, 4000, 100) != 0);
+    const Settings saved(settings.bytes());
+    CHECK(saved.best(set_a, 12).ticks == 2500);
+    CHECK(saved.best(set_a, 12).points == 1300);
+    CHECK(saved.best(set_a, 1).cleared());
+    CHECK(saved.best(set_a, 1).points == 0);
+    CHECK(saved.best(set_b, 12).ticks == 4000);
+    CHECK(!saved.best(set_b, 1).cleared());
+    CHECK(text(settings.bytes()) ==
+          "best 12345678 12 2500 1300\nbest 12345678 1 700 0\nbest deadbeef 12 4000 100\n");
+}
+
+void bad_bests() {
+    const stone::Settings settings(bytes("best 12345678 1 x 5\nbest 12345678 2 50\n"
+                                         "best 12345678 3 0 5\nbest 12345678 4 60 7 8\n"));
+    for (unsigned level = 1; level <= 4; ++level)
+        CHECK(!settings.best(set_a, level).cleared());
+}
+
 void unknown_lines_kept() {
     stone::Settings settings(bytes("future 1 2 3\nenhanced 1\n# note\n"));
     settings.set_enhanced(false);
@@ -67,6 +96,8 @@ int main() {
     defaults();
     reading();
     last_map();
+    bests();
+    bad_bests();
     unknown_lines_kept();
     if (failures)
         return 1;
