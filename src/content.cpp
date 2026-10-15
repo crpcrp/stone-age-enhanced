@@ -366,6 +366,13 @@ void content_program(const Package& package, std::map<unsigned, Bytes>& program)
     }
 }
 
+void song_program(const Package& package, std::map<unsigned, Bytes>& program) {
+    std::map<unsigned, Bytes> songs;
+    content_program(package, songs);
+    for (const uint16_t start : {uint16_t(0x1499), song_files_at}) // [jukebox], [song_files]
+        program[data_in_file + start] = songs.at(data_in_file + start);
+}
+
 std::vector<std::string> song_files(const Bytes& exe) {
     return song_names(exe.data() + data_in_file + song_files_at);
 }

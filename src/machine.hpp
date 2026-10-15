@@ -73,6 +73,13 @@ public:
     // Enhanced mode (ENHANCEMENTS.md, E0): off, the game is the original's.
     // The player turns it on from the saved setting; the tests leave it off.
     bool enhanced = false;
+    // Not original (ENHANCEMENTS.md, E2): the original game's files are there,
+    // so Options can choose its graphics, maps and music in place of the free
+    // ones. The game calls change_assets once it has saved new choices in
+    // STONEAGE.ENH; the host then gives it the resources and program bytes
+    // of those sets.
+    bool original_assets = false;
+    std::function<void(Machine&)> change_assets;
     // While the game has its INT 9 handler removed (password and name entry)
     // it reads characters through DOS instead of scan bytes. Extended keys
     // arrive as 0 followed by the scan code, as DOS delivers them.

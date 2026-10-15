@@ -34,6 +34,19 @@ bool Settings::enhanced() const {
 void Settings::set_enhanced(bool on) { set("enhanced", on ? "1" : "0"); }
 
 namespace {
+const char* const part_keys[Settings::parts] = {"images", "maps", "music"};
+} // namespace
+
+bool Settings::original(Part part) const {
+    std::string value;
+    return !find(part_keys[part], value) || value != "free";
+}
+
+void Settings::set_original(Part part, bool on) {
+    set(part_keys[part], on ? "original" : "free");
+}
+
+namespace {
 std::string reached_key(uint32_t levels) {
     char key[20];
     std::snprintf(key, sizeof key, "reached %08x", unsigned(levels));

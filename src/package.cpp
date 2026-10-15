@@ -236,6 +236,7 @@ void scramble(Bytes& data) {
 
 Package::Package(const std::string& path) {
     std::ifstream probe(path, std::ios::binary);
+    probe.get(); // a directory may open, but nothing can be read from it
     if (!probe) { // not a file: a directory of loose asset files
         directory = path + "/";
         return;

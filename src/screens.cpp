@@ -861,22 +861,25 @@ void Game::write_jukebox(uint8_t character) const {
 // --- Options ---
 
 void Game::options() const {
-    unpack(options_sheet_resource(), sprite_pixels());
-    std::copy_n(far(options_records()), 48, far(sprite_records()));
-    load_picture(options_picture);
-    screen.show_picture();
-    screen.save_page();
+    show_options_screen();
     draw_options();
     screen.fade_in();
     for (;;) {
         const uint8_t key = wait_for_next_key();
-        if (key == f1) // not original: the original's F1-F3 follow as F2-F4
+        if (key == f1) // not original: the original's F1-F3 follow as F3-F5
             set_enhanced(!m.enhanced);
-        else if (key == f2)
+        else if (key == f2) { // not original
+            screen.fade_out();
+            asset_options();
+            show_options_screen(); // in the graphics now chosen
+            draw_options();
+            screen.fade_in();
+            continue;
+        } else if (key == f3)
             full_background() ^= 0xff;
-        else if (key == f3)
+        else if (key == f4)
             flat_stone() ^= 0xff;
-        else if (key == f4) {
+        else if (key == f5) {
             adlib_enabled() ^= 0xff;
             song_ticks() = 0;
             if (!adlib_enabled())
@@ -890,12 +893,30 @@ void Game::options() const {
     screen.fade_out();
 }
 
+void Game::show_options_screen() const {
+    unpack(options_sheet_resource(), sprite_pixels());
+    std::copy_n(far(options_records()), 48, far(sprite_records()));
+    load_picture(options_picture);
+    screen.show_picture();
+    screen.save_page();
+}
+
+void Game::draw_options() const {
+    const char* const labels[] = {"F1. ENHANCED", "F2. ASSETS", "F3. FULL BACK",
+                                  "F4. FLAT STONE", "F5. ADLIB SOUND"};
+    const auto sprite = [](bool on) { return uint8_t(on ? 10 : 11); };
+    const uint8_t sprites[] = {sprite(m.enhanced), 0, sprite(full_background() != 0),
+                               sprite(flat_stone() != 0), sprite(adlib_enabled() != 0)};
+    draw_option_lines(labels, sprites, 5);
+}
+
 // Not original. The picture's lines F1-F5 are covered with the commonest
-// colour under them, and four lines take their place, 17 pixels apart as
-// the original's: in the 8x16 font of the asset set, in the colour the
+// colour under them, and lines take their place, 17 pixels apart as the
+// original's: in the 8x16 font of the asset set, in the colour the
 // picture's lines use most, each with its ON or OFF sprite. F10 stays as
 // the picture has it.
-void Game::draw_options() const {
+void Game::draw_option_lines(const char* const* labels, const uint8_t* sprites,
+                             unsigned count) const {
     const unsigned left = 88, top = 62, width = 124, height = 86;
     const uint8_t* const picture = m.at(picture_buffer()[1], 0);
     const uint8_t* const palette = picture + 320 * 200;
@@ -916,17 +937,69 @@ void Game::draw_options() const {
     const uint8_t colour = text_colour();
     text_colour() = commonest(bright);
     floor_tile() = flat_stone() ? 'q' : 'B';
-    const char* const labels[] = {"F1. ENHANCED", "F2. FULL BACK", "F3. FLAT STONE",
-                                  "F4. ADLIB SOUND"};
-    const bool on[] = {m.enhanced, full_background() != 0, flat_stone() != 0,
-                       adlib_enabled() != 0};
-    for (unsigned n = 0; n < 4; ++n) {
+    for (unsigned n = 0; n < count; ++n) {
         screen.move_to(91, 64 + 17 * n);
         screen.write(reinterpret_cast<const uint8_t*>(labels[n]));
-        screen.draw_sprite(on[n] ? 10 : 11, on[n] ? 217 : 214, 66 + 17 * n);
+        if (sprites[n])
+            screen.draw_sprite(sprites[n], sprites[n] == 10 ? 217 : 214, 66 + 17 * n);
     }
     text_colour() = colour;
     screen.flip();
+}
+
+// Not original. Each line ends in FREE or ORIG, within the 15 characters
+// the covered lines hold. Without the original's files everything is free
+// and stays so, and a line says why.
+void Game::asset_options() const {
+    const Settings saved = load_settings();
+    bool original[Settings::parts];
+    for (unsigned n = 0; n < Settings::parts; ++n)
+        original[n] = m.original_assets && saved.original(Settings::Part(n));
+    show_options_screen();
+    const auto draw = [&]() {
+        const char* const names[] = {"F1. IMAGES ", "F2. MAPS   ", "F3. MUSIC  "};
+        std::string lines[Settings::parts];
+        const char* labels[Settings::parts + 1];
+        const uint8_t sprites[Settings::parts + 1] = {};
+        for (unsigned n = 0; n < Settings::parts; ++n) {
+            lines[n] = std::string(names[n]) + (original[n] ? "ORIG" : "FREE");
+            labels[n] = lines[n].c_str();
+        }
+        labels[Settings::parts] = "NO ORIGINAL";
+        draw_option_lines(labels, sprites, Settings::parts + (m.original_assets ? 0 : 1));
+    };
+    draw();
+    screen.fade_in();
+    for (;;) {
+        const uint8_t key = wait_for_next_key();
+        if (key == f10)
+            break;
+        if (key >= f1 && key < f1 + Settings::parts && m.original_assets) {
+            original[key - f1] = !original[key - f1];
+            draw();
+        }
+    }
+    screen.fade_out();
+    Settings settings = load_settings();
+    bool changed = false;
+    for (unsigned n = 0; n < Settings::parts; ++n)
+        if (m.original_assets && original[n] != saved.original(Settings::Part(n))) {
+            settings.set_original(Settings::Part(n), original[n]);
+            changed = true;
+        }
+    if (!changed)
+        return;
+    save_settings(settings);
+    if (m.change_assets)
+        m.change_assets(m);
+    // The new program bytes hold the built-in score table; the maps chosen
+    // may keep their scores in another file.
+    load_scores();
+    if (original[Settings::music] != saved.original(Settings::music)) {
+        song_ticks() = 0; // the song of the playlist, from the songs now chosen
+        current_song() = 0xff;
+        music.play_next();
+    }
 }
 
 void Game::set_enhanced(bool on) const {

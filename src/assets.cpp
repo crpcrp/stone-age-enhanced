@@ -522,25 +522,27 @@ void pack_assets(const std::string& directory, const std::string& package) {
     write_package(package, files);
 }
 
-Assets::Assets(const Package& package) {
+Assets::Assets(const Package& graphics, const Package& maps, const Package& music) {
     auto path = [](const std::string& name) {
         return name;
     };
     auto read_file = [&](const std::string& name) {
-        return package.file(name);
+        return graphics.file(name);
     };
     auto read_picture = [&](const std::string& name) {
-        return file_picture(package.file(name), name);
+        return file_picture(graphics.file(name), name);
     };
     {
         Machine image; // the program as built, for its password alphabet
         const uint8_t* data = &image.data(0);
         Bytes passwords;
-        resources[0x157e0] = levels_records(read_file(path("levels.txt")),
+        resources[0x157e0] = levels_records(maps.file(path("levels.txt")),
                                             {data + consonants_at, data + vowels_at}, passwords);
         program[data_in_file + passwords_at] = passwords;
     }
-    content_program(package, program);
+    content_program(graphics, program);
+    if (&music != &graphics)
+        song_program(music, program);
     resources[0x33720] = read_file(path("sine.bin"));
     if (resources[0x33720].size() != 16384)
         throw std::runtime_error("sine.bin has the wrong size");
