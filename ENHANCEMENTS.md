@@ -21,7 +21,9 @@ next. The code refers to the entries here by number (`ENHANCEMENTS.md, E1`).
 3. **`STONEAGE.ENH` holds everything saved.** It is a text file of lines
    `key value...` (`settings.hpp`). Lines that a version does not know are
    kept as they are, so older and newer versions can share the file.
-   `STONEAGE.HI` stays the original's.
+   `STONEAGE.HI` stays the original's. The one exception is each level
+   pack's score table (E7), which keeps the original's file format in a
+   file of its own.
 4. **Progress belongs to a level set.** Everything recorded for a map
    carries the CRC-32 of its level set (`Game::level_set()`), as `reached`
    does already. The original's levels, the free set and every level pack
@@ -181,6 +183,8 @@ picture rather than from the window.
 
 ## E6: gamepad
 
+With enhanced mode off, gamepads are ignored, as rule 1 says.
+
 Through SDL3's gamepad API (add `SDL_INIT_GAMEPAD`). The host turns
 buttons into the same scan bytes the keyboard sends, so the game and its
 determinism are untouched. The first gamepad connected is used, and
@@ -262,10 +266,19 @@ touching the keyboard.
   not after level 100.
 - The selector shows only the pack's maps, with as many pages as it needs.
 
-**High scores.** A game played on a pack does not enter the original's
-table in `STONEAGE.HI`. That table stays the one for the original's levels.
-A pack's results are its bests (E3) and statistics (E4), plus a whole-game
-best saved as `packbest <crc> <score>`.
+**High scores.** Each pack has its own score table.
+- The built-in set keeps `STONEAGE.HI`, as now.
+- A pack's table is saved as `scores/<crc>.HI` beside the player, where
+  `<crc>` is the pack's CRC-32 in eight hex digits. It is in the same
+  format as `STONEAGE.HI`: the table with every byte inverted.
+- `load_scores` and `save_scores` choose the file from the active set, so
+  name entry, the score screen (menu F3) and the birds all work unchanged.
+  The score screen's title names the pack.
+- A pack that has no table yet starts from the default table built into
+  the game.
+- The table in memory is the original's (`score_table()`). Switching packs
+  saves the old pack's table and loads the new one's before anything else
+  reads it.
 
 **Files.** New `levels.{hpp,cpp}`, `assets.cpp` (uses it), `machine.hpp`,
 `machine.cpp`, `selector.cpp` (list and paging), `screens.cpp`
@@ -273,7 +286,8 @@ best saved as `packbest <crc> <score>`.
 
 **Done when** a pack of 1, 37 and 100 levels plays from start to victory, a
 broken file is reported and not loaded, and switching packs keeps each
-pack's progress separate.
+pack's progress and score table separate. With the built-in set active,
+`STONEAGE.HI` is read and written exactly as before.
 
 ## E8: solver: is the map solvable, and what is its par
 
@@ -436,19 +450,20 @@ With each enhancement, the comparison tests with the original executable
 are also run with enhanced mode off. They are outside this repository, so
 whoever holds the original runs them.
 
-## Open questions
+## Decisions
 
-These are the plan's defaults. Each can be changed before its enhancement
-is built.
+Decided:
 
-1. **E5 and E6 with enhanced mode off.** The default follows rule 1:
-   fullscreen and the gamepad are off with the rest. They change nothing
-   in the game itself, so they could stay on in both modes instead.
-2. **E7, F1 with a pack active.** The default: F1 plays the active pack.
-   Alternative: F1 always plays the built-in set, and packs are played only
-   from the selector.
-3. **E7, high scores for packs.** The default: a game on a pack keeps only
-   its own best and never enters `STONEAGE.HI`.
+1. **E5 and E6 follow the switch.** With enhanced mode off, fullscreen,
+   the display presets and the gamepad are all off, as rule 1 says.
+2. **E7, F1 plays the active pack.** F1 (new game) starts the pack chosen
+   in the selector, from its first level.
+3. **E7, each pack has its own high scores,** in its own score table
+   (`scores/<crc>.HI`). `STONEAGE.HI` stays the built-in set's.
+
+Still open, with the plan's defaults. Each can be changed before its
+enhancement is built:
+
 4. **E3, measuring time.** The default is play ticks. Alternative: time
    left on the countdown, which hourglasses distort.
 5. **E8, the state limit.** 2 million states is a guess. It is tuned on the
