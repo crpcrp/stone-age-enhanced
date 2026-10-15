@@ -1,0 +1,37 @@
+# Legal notes
+
+This is an unofficial reconstruction of Stone Age. It is not affiliated with,
+endorsed by or authorized by the game's creators or rights holders. See
+[LICENSE](LICENSE).
+
+## What is and is not included
+
+- **Not included:** anything of the original game's content: its
+  executable, pictures, songs, levels, passwords, texts and colours. To use
+  them, you need your own copy of the game; the player reads them from it on
+  your computer (`original_data/`, packed into `original.dat` beside the
+  player). Do not distribute these files or `original.dat`.
+- **Derived from the original:** the program. `src/music_lift.inc` is a
+  translation of the original's music driver; the readable game
+  (`src/game.cpp`, `src/screens.cpp`, `src/video.cpp`) was written from a
+  translation of the original's code, routine by routine; `src/game_data.inc`
+  and `src/music_tables.inc` hold the start values, pointers and tables the
+  program needs whatever its assets (no levels, texts or pictures). This is
+  not a clean-room implementation, and the rights holders' rights in these
+  files are not affected by this repository.
+- **New work:** everything in `assets/`: pictures, songs, the hundred levels
+  with their passwords, the texts and the colours. They were
+  made for this project and contain nothing taken from the original.
+
+The repository's history starts with the free asset set; earlier work that
+held the original's exported content is not published.
+
+## Third-party components
+
+| Component | License | Notice |
+|---|---|---|
+| SDL3 | zlib | [SDL3.txt](third_party/licenses/SDL3.txt) |
+| DOSBox 0.74-3 DBOPL | GNU GPL version 2 or later | [DOSBox-DBOPL.txt](third_party/licenses/DOSBox-DBOPL.txt) |
+
+The player links DBOPL. Anyone who distributes the player must meet the GPL's
+terms, including providing the corresponding source.

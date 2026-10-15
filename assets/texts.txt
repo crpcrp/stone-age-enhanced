@@ -1,0 +1,374 @@
+# Stone Age texts. Each [section] fills a fixed area of the program's data in
+# the original's own encoding. A shorter text is padded with zero bytes; a
+# longer one is refused.
+#
+# Text sections hold the bytes as written, except \r (carriage return: the
+# next line down), \n (line feed: back to the left edge), \0 (end of a
+# string), \\ (a backslash) and \xNN (any other byte; [ is always \x5b).
+# Line breaks in this file are ignored: one follows each \0 and each line end.
+# Characters are code page 437; in the font of the score and credits screens
+# \xe0 starts bold letters and \xe2 ends them.
+#   credits_idle     The credits (C on the menu): lines of 20 characters ended
+#                    by \r\n\0. The scroll ends when its top line reaches byte
+#                    2722; the lines after that are the last screen. Before it
+#                    starts, the 20 bytes from 2177 and from 880 go to 694 and
+#                    717, in an order left to chance.
+#   credits_victory  The credits after level 100; the scroll ends at byte 1748.
+#   jukebox          Song titles F1-F8 (one line each, ended by \r), the prompt
+#                    and the key help, each ended by \0. Letters: A-Z . , " -
+#                    space ! ? ( ' : ; 0-9.
+#   song_files       Eight song file names of 13 bytes each, padded with \0.
+#   scores           The heading of the score table; then the table itself,
+#                    shown when there is no STONEAGE.HI: nine rows of 32 bytes
+#                    (name from byte 2, score from byte 24, then \r\n) and \0.
+#   name_entry       The text above the name being entered.
+#
+# Page sections are drawn with the letters of sprites 134-180: one line a
+# record, x y |letters|, and an empty line ends a page. The letters are A-Z,
+# 0-9, # $ ? ! % . : , ] [ and space; # $ % are ornaments, ] [ and space are
+# blank. \xNN is any other sprite code. The game writes into fixed bytes:
+#   retry_page                After a lost life.
+#   completed_page            After a level: score glyphs at byte 16, the next
+#                             level at 40. The 15 bytes from 45 are copied from
+#                             60 (lives) or 75 (one life), the digit to 49. The
+#                             password page is at 89, its letters at 93.
+#   quotes                    Four pages; one is drawn on the completed page.
+#   game_over_and_level_page  The game over page, then the page before a level
+#                             with the level number at byte 122.
+
+[credits_idle]
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+ \xe0S T O N E   A G E\xe2  \r\n\0
+                    \r\n\0
+  a reconstruction  \r\n\0
+of the 1992 DOS game\r\n\0
+                    \r\n\0
+with free pictures, \r\n\0
+  songs and levels  \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+Thanks for playing! \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \xe2\xe2\r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \xe2\xe2\r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+
+[credits_victory]
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+A breath of warm air\r\n\0
+comes down the last \r\n\0
+      tunnel.       \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+Then light, gold and\r\n\0
+ green, as wide as  \r\n\0
+   the whole sky.   \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+The little dinosaur \r\n\0
+  steps out of the  \r\n\0
+   caves at last.   \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+ Down in the valley \r\n\0
+the herd is waiting \r\n\0
+ for its youngest.  \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+ Well done, friend! \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+                    \r\n\0
+Stone Age needs more free memory.\n\r
+$\0
+
+[jukebox]
+F1 -       TUNDRA DAWN\r
+F2 -        BONE FLUTE\r
+F3 -        CLAY DANCE\r
+F4 -      STEPPE STORM\r
+F5 -  TALE BY THE FIRE\r
+F6 -    THE LONG MARCH\r
+F7 -      HERD AT PLAY\r
+F8 -   VALLEY OF AMBER\0
+   PICK YOUR SONGS:\0
+\0
+\0
+\0
+F9  -      PLAY THE LAST ONE NOW\r
+DEL -     TAKE THE LAST ONE BACK\r
+F10 -    SILENCE, CLEAR THE LIST\r
+ESC -           BACK TO THE MENU\0
+
+[song_files]
+1TUNDRA.CMF\0
+\0
+2BONEFLU.CMF\0
+3CLAYDAN.CMF\0
+4STEPPE.CMF\0
+\0
+5FIRETAL.CMF\0
+6MARCH.CMF\0
+\0
+\0
+7HERD.CMF\0
+\0
+\0
+\0
+8AMBER.CMF\0
+
+[scores]
+   Hear this, all of the valley:\n\r
+ these are the finest hunters\n\r
+      \xe0ever to walk the caves:\xe2\n\r\n\r
+\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2\xe2  Urga Flintfoot  .....  18000\r\n
+  Bram Mossback  ......  15000\r\n
+  Tula Stonehand  .....  12500\r\n
+  Oggo Firekeeper  ....  10000\r\n
+  Mira Ashwillow  .....   8000\r\n
+  Dunn Ravenhide  .....   6000\r\n
+  Ketta Longspear  ....   4500\r\n
+  Pell Riverstone  ....   3000\r\n
+  Ona Thornbush  ......   1500\0
+
+[name_entry]
+      \xe0A fine hunt, friend!\xe2\n\r\n\r
+Your score has earned a place\n\r
+among the finest of the valley.\n\r
+Carve your name into the wall,\n\r
+so that the herd remembers it:\n\r\n\r
+     _\0
+
+[retry_page]
+32 32 |OUCH! THAT HURT.|
+0 54 |SHAKING OFF THE DUST|
+40 76 |YOU LIGHT A NEW|
+16 98 |TORCH AND TRY THIS|
+40 120 |CAVE ONCE MORE.|
+
+
+[completed_page]
+0 2 |[TOTAL SCORE 000000]|
+8 29 |[[ENTER CAVE 000.|
+72 50 |[0 TORCHES]|
+
+72 50 |[0 TORCHES]|
+
+88 50 |[0 TORCH ]|
+
+96 182 |[AAAAAA]|
+
+
+[quotes]
+32 92 |ON THE CAVE WALL|
+8 111 |SOMEONE HAS PAINTED|
+0 130 |SIX SIGNS. YOU LEARN|
+48 149 |THEM BY HEART:|
+
+40 92 |THE OLD MAMMOTH|
+32 111 |HUMS A SONG FROM|
+8 130 |LONG AGO. ITS WORDS|
+48 149 |STAY WITH YOU:|
+
+24 92 |A BIRD CALLS FROM|
+8 111 |THE ROCKS ABOVE. IT|
+16 130 |SOUNDS ALMOST LIKE|
+104 149 |A WORD:|
+
+8 92 |THE STARS SPELL OUT|
+8 111 |A NAME IN THE NIGHT|
+32 130 |SKY. REMEMBER IT|
+80 149 |FOR LATER:|
+
+
+[game_over_and_level_page]
+40 52 |YOUR LAST TORCH]]|
+40 74 |HAS BURNT DOWN.]]|
+48 96 |THE CAVES FALL]|
+16 118 |SILENT. GAME OVER.|
+
+8 32 |TAKE A DEEP BREATH.|
+8 54 |[[ENTER CAVE 000.|
+72 112 |TAP ANY KEY|
+0 134 |TO LIGHT YOUR TORCH.|
+

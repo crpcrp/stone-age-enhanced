@@ -1,0 +1,15 @@
+Stone Age reconstruction: license notice
+
+No license is granted. All rights reserved.
+
+Stone Age (Eclipse, 1992), including its code, artwork, music, levels, text,
+names and logos, belongs to its rights holders. This repository contains
+material derived from it (see LEGAL.md). All rights in that material remain
+with them.
+
+The rest of this repository is copyright its contributors.
+
+Third-party components keep their own licenses: SDL3 (zlib) and DOSBox DBOPL
+(GNU GPL version 2 or later). Their notices are in third_party/licenses.
+
+This software is provided "as is", without warranty of any kind.

@@ -1,0 +1,45 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 25, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "Player (default generator)",
+      "binaryDir": "${sourceDir}/build/cmake",
+      "cacheVariables": { "STONE_BUILD_PLAYER": "ON", "STONE_BUILD_TESTS": "OFF" }
+    },
+    {
+      "name": "ninja",
+      "displayName": "Player (Ninja, GCC or Clang)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/cmake-ninja",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "STONE_BUILD_PLAYER": "ON", "STONE_BUILD_TESTS": "OFF" }
+    },
+    {
+      "name": "core",
+      "displayName": "Portable core and asset packer only, no SDL",
+      "binaryDir": "${sourceDir}/build/cmake-core",
+      "cacheVariables": { "STONE_BUILD_PLAYER": "OFF", "STONE_BUILD_TESTS": "OFF" }
+    },
+    {
+      "name": "test",
+      "displayName": "Player and tests (needs research/ and original_data/)",
+      "inherits": "default",
+      "cacheVariables": { "STONE_BUILD_TESTS": "ON" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "default", "configurePreset": "default", "configuration": "Release" },
+    { "name": "ninja", "configurePreset": "ninja" },
+    { "name": "core", "configurePreset": "core", "configuration": "Release" },
+    { "name": "test", "configurePreset": "test", "configuration": "Release" }
+  ],
+  "testPresets": [
+    {
+      "name": "test",
+      "configurePreset": "test",
+      "configuration": "Release",
+      "output": { "outputOnFailure": true }
+    }
+  ]
+}
