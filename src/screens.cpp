@@ -146,6 +146,8 @@ void Game::start() const {
     screen.set_layout(false);
     install_keyboard();
     screen.clear_everything();
+    if (m.enhanced && load_settings().light()) // not original (E0): LIGHT as last left
+        easy_mode() = 0xff;
 }
 
 void Game::install_keyboard() const {
@@ -205,8 +207,14 @@ Game::MenuChoice Game::menu() const {
                 return quit;
             if (key < f1 || key > (m.enhanced ? f8 : f7)) // not original: F8 (E4)
                 continue;
-            if (key == f6)
+            if (key == f6) {
                 easy_mode() ^= 0xff;
+                if (m.enhanced) { // not original (E0): kept for the next run
+                    Settings settings = load_settings();
+                    settings.set_light(easy_mode() >= 0x80);
+                    save_settings(settings);
+                }
+            }
             else if (key == f7)
                 background_bank() ^= 1;
             else {

@@ -34,6 +34,13 @@ bool Settings::enhanced() const {
 
 void Settings::set_enhanced(bool on) { set("enhanced", on ? "1" : "0"); }
 
+bool Settings::light() const {
+    std::string value;
+    return find("light", value) && value == "1";
+}
+
+void Settings::set_light(bool on) { set("light", on ? "1" : "0"); }
+
 namespace {
 const char* const part_keys[Settings::parts] = {"images", "maps", "music"};
 } // namespace

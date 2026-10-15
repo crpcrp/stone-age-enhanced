@@ -16,6 +16,10 @@ public:
     // value, enhanced mode is on.
     bool enhanced() const;
     void set_enhanced(bool on);
+    // `light 1` or `light 0`: LIGHT (menu F6), kept in enhanced mode (E0).
+    // Without the line, or with any other value, off.
+    bool light() const;
+    void set_light(bool on);
     // `images`, `maps` or `music` followed by `original` or `free`: which
     // asset set that part comes from when the original game's files are
     // there (Options F2). Without the line, or with any other value, the
