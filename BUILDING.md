@@ -22,9 +22,9 @@ cmake --preset default
 cmake --build --preset default
 ```
 
-Other presets: `ninja` (Ninja with GCC or Clang) and `core` (the portable
-core and the asset packer only, without SDL and the player). Plain
-`cmake -S . -B build/cmake` works as well.
+Other presets: `ninja` (Ninja with GCC or Clang), `core` (the portable
+core and the asset packer only, without SDL and the player) and `wasm` (the
+web version, below). Plain `cmake -S . -B build/cmake` works as well.
 
 On Windows, `build.ps1` does the same and finds the CMake that Visual Studio
 installs when none is on `PATH`:
@@ -39,6 +39,29 @@ Outputs are written to `build/`: `stone_play.exe`, `SDL3.dll`,
 `stoneage.dat` (the packed `assets/`), `stone_assets.exe` and the legal
 notices. The CMake build trees are in `build/cmake*`; later builds are
 incremental.
+
+## Web version
+
+The browser build needs Emscripten (emsdk 4.0.10, as pinned in
+`.github/workflows/web.yml`) and Ninja, and the package the `core` preset
+packs, since `stone_assets` cannot run inside the browser build:
+
+```sh
+cmake --preset core && cmake --build --preset core
+emcmake cmake --preset wasm
+cmake --build --preset wasm
+```
+
+The page is `build/web/index.html` with `index.js`, `index.wasm` and
+`index.data`; serve the folder over HTTP (`python3 -m http.server -d
+build/web`) rather than opening the file. `web/shell.html` is the page
+around the canvas, `web/saves.js` keeps the saves in IndexedDB and
+`web/original.js` adds the original game from a zip.
+
+`.github/workflows/web.yml` builds the page on every push and pull request
+and publishes it on GitHub Pages from `main`, with `LICENSE`, `LEGAL.md`
+and the notices. Pages must be set once to deploy from Actions: Settings →
+Pages → Build and deployment → Source: GitHub Actions.
 
 ## Run
 
@@ -129,10 +152,23 @@ starts; the build is done when `build/cmake-headless/ready` exists.
 
 ## Limits
 
-Non-Windows builds have not been verified.
+Native builds other than Windows have not been verified; the headless Linux
+build of the cloud sessions and the web build are the exceptions.
+
+In the browser:
+
+- The game needs a keyboard; there are no touch controls.
+- The browser keeps some keys (Ctrl+W, Ctrl+T, Ctrl+N), which the game does
+  not use. In fullscreen Esc leaves fullscreen first, except in Chromium,
+  where the fullscreen button locks it for the game.
+- Saves belong to one browser and one site, and the browser may delete
+  them; **Export saves** keeps them in a zip.
+- 70 ticks a second on a 60 Hz screen: one frame in six shows two ticks, as
+  on the desktop.
 
 ## Distribution
 
-This project publishes source only, never a built player. If you build the
-player and pass it on, keep `LICENSE`, `LEGAL.md` and the `licenses` folder
+This project publishes its source and the web version built from it by the
+workflow; there are no desktop downloads. If you build the player and pass
+it on, keep `LICENSE`, `LEGAL.md` and the `licenses` folder
 (copied into `build/`) with it. See [LEGAL.md](LEGAL.md).

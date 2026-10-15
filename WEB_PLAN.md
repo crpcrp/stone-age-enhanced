@@ -5,7 +5,7 @@ Actions builds it on every push to `main` and publishes it on GitHub Pages.
 The site plays with the free assets in `assets/`. A player who owns the
 original game can add a zip of its files on the page; the zip stays in their
 browser and never reaches the server. Each milestone below ends with the
-check that shows it is done; milestones 1 to 5 are done.
+check that shows it is done; milestones 1 to 5 and 7 are done.
 
 ## Decisions
 
@@ -263,6 +263,12 @@ until then the deploy job fails on `main`.
   page stay in the player's browser.
 - This file is deleted once the milestones are done; what remains true
   moves into those three.
+
+**Done**, except deleting this file, which waits for milestone 6. `README.md`
+has "Play in the browser"; `BUILDING.md` has the `wasm` preset under "Web
+version", the browser limits under "Limits" and the web version under
+"Distribution"; `LEGAL.md` has the web version and a section for rights
+holders.
 
 ## Licences
 

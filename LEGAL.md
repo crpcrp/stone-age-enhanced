@@ -23,6 +23,21 @@ endorsed by or authorized by the game's creators or rights holders. See
   with their passwords, the texts and the colours. They were
   made for this project and contain nothing taken from the original.
 
+## The web version
+
+The page on GitHub Pages is built from this repository alone and holds the
+free set only. The original game's files that a player adds there are
+unpacked in their browser and kept in its storage; they are never sent to
+the site or anywhere else.
+
+## Rights holders
+
+If you hold rights in Stone Age and want this project changed or taken
+down, open an issue on the repository or contact its owner through GitHub,
+and it will be dealt with promptly.
+
+## History
+
 The repository's history starts with the free asset set; earlier work that
 held the original's exported content is not published.
 
