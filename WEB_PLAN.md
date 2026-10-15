@@ -4,8 +4,8 @@ This plan is for a version of the player that runs in a web browser. GitHub
 Actions builds it on every push to `main` and publishes it on GitHub Pages.
 The site plays with the free assets in `assets/`. A player who owns the
 original game can add a zip of its files on the page; the zip stays in their
-browser and never reaches the server. Nothing has been built yet; each
-milestone below ends with the check that shows it is done.
+browser and never reaches the server. Each milestone below ends with the
+check that shows it is done; milestone 1 is done.
 
 ## Decisions
 
@@ -64,6 +64,17 @@ milestone below ends with the check that shows it is done.
 
 **Done when:** `build/web/` served by `python3 -m http.server` shows the
 title screen in Chromium, and a level plays with music.
+
+**Done.** With emsdk 4.0.10 active:
+
+```sh
+cmake --preset core && cmake --build --preset core   # packs build/stoneage.dat
+emcmake cmake --preset wasm && cmake --build --preset wasm
+cd build/web && python3 -m http.server
+```
+
+The fibers were checked with exceptions thrown and caught across a swap.
+The desktop player's scripted runs give the same frames as before.
 
 ### 2. Saves that last
 

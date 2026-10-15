@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stone Age</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; color: #ccc; font: 16px sans-serif; }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  canvas { display: block; outline: none; image-rendering: pixelated; }
+  #status { margin: 12px; }
+  #ended[hidden] { display: none; }
+  #ended button { font: inherit; padding: 8px 16px; }
+</style>
+</head>
+<body>
+<!-- The page around the game. Milestone 4 of WEB_PLAN.md gives it its final
+     form; this one shows the canvas, loading and the end of a game. -->
+<canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
+<div id="status">Loading…</div>
+<div id="ended" hidden><button id="again">Play again</button></div>
+<script>
+  // The desktop player's options come from the page's address:
+  // ?original turns the enhancements off for this run, ?free leaves the
+  // original's files out.
+  var options = new URLSearchParams(location.search);
+  var statusLine = document.getElementById('status');
+  var canvas = document.getElementById('canvas');
+  var Module = {
+    canvas: canvas,
+    arguments: ['original', 'free'].filter(function (name) { return options.has(name); })
+                                   .map(function (name) { return '--' + name; }),
+    setStatus: function (text) { statusLine.textContent = text; },
+    onRuntimeInitialized: function () { canvas.focus(); },
+    print: function (text) { console.log(text); },
+    printErr: function (text) { console.error(text); },
+    // The game ended (INT 21h/4Ch): play again in place of closing.
+    gameEnded: function () {
+      document.getElementById('ended').hidden = false;
+    }
+  };
+  document.getElementById('again').onclick = function () { location.reload(); };
+  canvas.addEventListener('click', function () { canvas.focus(); });
+  window.onerror = function () { statusLine.textContent = 'The game stopped with an error; see the console.'; };
+</script>
+{{{ SCRIPT }}}
+</body>
+</html>

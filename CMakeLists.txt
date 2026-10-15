@@ -10,6 +10,9 @@ endif()
 # Executables land in build/ whatever the generator, so documented paths
 # (build/stone_play.exe) stay valid.
 set(STONE_OUTPUT "${CMAKE_SOURCE_DIR}/build")
+if(EMSCRIPTEN)
+    set(STONE_OUTPUT "${CMAKE_SOURCE_DIR}/build/web") # the web page and its files (WEB_PLAN.md)
+endif()
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${STONE_OUTPUT}")
 foreach(config DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${config} "${STONE_OUTPUT}")
@@ -24,6 +27,11 @@ else()
         add_link_options(-static-libgcc -static-libstdc++)
     endif()
 endif()
+if(EMSCRIPTEN)
+    # The core throws and catches std::runtime_error.
+    add_compile_options(-fexceptions)
+    add_link_options(-fexceptions)
+endif()
 
 option(STONE_BUILD_PLAYER "Build the SDL3 player" ON)
 # The tests live in research/ with the fixtures they need, outside the repository.
@@ -37,23 +45,35 @@ set(STONE_CORE_SOURCES src/stone.cpp src/machine.cpp src/game.cpp src/screens.cp
     src/music.cpp src/assets.cpp src/content.cpp src/package.cpp src/settings.cpp)
 add_library(stone_core ${STONE_CORE_SOURCES})
 target_include_directories(stone_core PUBLIC src)
-find_package(Threads REQUIRED) # readable code waits for ticks on a thread (machine.cpp)
-target_link_libraries(stone_core PUBLIC Threads::Threads)
+if(NOT EMSCRIPTEN) # in the browser readable code waits on a fiber, not a thread
+    find_package(Threads REQUIRED) # readable code waits for ticks on a thread (machine.cpp)
+    target_link_libraries(stone_core PUBLIC Threads::Threads)
+endif()
 # Editable assets live in assets/: the free pictures, songs, levels, texts
 # and colours, yours to change. Every build
 # packs them into build/stoneage.dat. The original's files are never copied
 # there: the player packs them itself when it finds them in original_data/
 # (play.cpp).
-add_executable(stone_assets src/assets_main.cpp)
-target_link_libraries(stone_assets PRIVATE stone_core)
-set(STONE_ASSETS "${CMAKE_SOURCE_DIR}/assets" CACHE PATH "Directory of editable asset files")
-add_custom_target(stone_asset_package ALL
-    COMMAND stone_assets pack "${STONE_ASSETS}" "${STONE_OUTPUT}/stoneage.dat"
-    COMMENT "Packing assets/ into build/stoneage.dat")
+if(EMSCRIPTEN)
+    # stone_assets cannot run inside a wasm build: a native one (the core
+    # preset) packs the package, and the page preloads it.
+    set(STONE_PACKAGE "${CMAKE_SOURCE_DIR}/build/stoneage.dat" CACHE FILEPATH
+        "stoneage.dat packed by a native stone_assets")
+    if(NOT EXISTS "${STONE_PACKAGE}")
+        message(FATAL_ERROR "${STONE_PACKAGE} is missing. Build the core preset first; it packs assets/.")
+    endif()
+else()
+    add_executable(stone_assets src/assets_main.cpp)
+    target_link_libraries(stone_assets PRIVATE stone_core)
+    set(STONE_ASSETS "${CMAKE_SOURCE_DIR}/assets" CACHE PATH "Directory of editable asset files")
+    add_custom_target(stone_asset_package ALL
+        COMMAND stone_assets pack "${STONE_ASSETS}" "${STONE_OUTPUT}/stoneage.dat"
+        COMMENT "Packing assets/ into build/stoneage.dat")
+endif()
 
 # Tests that need nothing of the original game (ENHANCEMENTS.md, Tests).
 include(CTest)
-if(BUILD_TESTING)
+if(BUILD_TESTING AND NOT EMSCRIPTEN)
     add_executable(stone_tests tests/settings_tests.cpp)
     target_link_libraries(stone_tests PRIVATE stone_core)
     add_test(NAME settings COMMAND stone_tests)
@@ -81,9 +101,15 @@ if(STONE_BUILD_PLAYER)
             IMPORTED_IMPLIB "${STONE_SDL_ARCH}/lib/libSDL3.dll.a"
             INTERFACE_INCLUDE_DIRECTORIES "${STONE_SDL_ARCH}/include")
     else()
-        # An installed SDL3 when there is one, otherwise SDL built from source.
-        set(SDL_SHARED ON CACHE BOOL "" FORCE)
-        set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+        # An installed SDL3 when there is one, otherwise SDL built from source;
+        # in the browser a static library linked into the page.
+        if(EMSCRIPTEN)
+            set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+            set(SDL_STATIC ON CACHE BOOL "" FORCE)
+        else()
+            set(SDL_SHARED ON CACHE BOOL "" FORCE)
+            set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+        endif()
         set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
         FetchContent_Declare(SDL3
             URL https://github.com/libsdl-org/SDL/releases/download/release-3.4.16/SDL3-3.4.16.tar.gz
@@ -127,6 +153,17 @@ if(STONE_BUILD_PLAYER)
     target_link_libraries(stone_play PRIVATE stone_audio_core SDL3::SDL3)
     if(MSVC)
         target_sources(stone_play PRIVATE src/play.manifest)
+    endif()
+    if(EMSCRIPTEN)
+        # build/web/index.html with index.js, index.wasm and index.data (the
+        # package, preloaded where the desktop finds it beside the player).
+        set_target_properties(stone_play PROPERTIES OUTPUT_NAME index SUFFIX .html)
+        set_property(TARGET stone_play APPEND PROPERTY LINK_DEPENDS
+            "${CMAKE_SOURCE_DIR}/web/shell.html" "${STONE_PACKAGE}")
+        target_link_options(stone_play PRIVATE
+            -sASYNCIFY -sALLOW_MEMORY_GROWTH -sSTACK_SIZE=1048576
+            -lidbfs.js "--shell-file=${CMAKE_SOURCE_DIR}/web/shell.html"
+            "--preload-file=${STONE_PACKAGE}@/stoneage.dat")
     endif()
     if(WIN32)
         add_custom_command(TARGET stone_play POST_BUILD
