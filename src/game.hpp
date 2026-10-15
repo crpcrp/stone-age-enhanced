@@ -395,9 +395,8 @@ struct Game : GameNames {
     // played, ten to a page, sorted by number or by attempts (Tab or S). The
     // arrow keys and PgUp/PgDn turn the pages, Esc leaves.
     void statistics() const;
-    // `F8 STATS` on the menu. The free picture has the line drawn in; on
-    // the original's it is written at the bottom of the screen.
-    void draw_stats_entry() const;
+    // `F8 - STATS` on the original's menu picture, in the picture buffer.
+    void add_stats_line() const;
     // CS:30f5. Text scrolling up over a picture, a pixel every three ticks,
     // until its end or a key. CS:30b7 before the game, with two names in an
     // order left to chance; CS:30a9 after the last level.

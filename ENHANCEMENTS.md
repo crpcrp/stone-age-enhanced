@@ -175,7 +175,10 @@ with an attempt, with a column for give-ups beside the four planned, so
 each row visibly adds up; Tab or S sorts them by attempts, the most first,
 and Home and End jump to the first and last page. With enhanced mode off
 F8 is ignored and the menu is the original's. `stone_tests` checks the
-`stats` and `totals` lines.
+`stats` and `totals` lines. On the original's title picture the seven
+lines move up 8 pixels (the A/B sprite with them) and `F8 - STATS` is
+added as the eighth step of their stair, made of the picture's own
+letters (`add_stats_line`), instead of a line at the bottom.
 
 ## E5: display: scaling, aspect ratio and a CRT look (done, without fullscreen)
 
