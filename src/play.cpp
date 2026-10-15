@@ -178,8 +178,9 @@ std::string find_original_package(const std::string& base) {
 #ifndef __EMSCRIPTEN__
 // Not original (ENHANCEMENTS.md, E8): maps of the level set played that have
 // no par in STONEAGE.ENH yet, solved one after another on a thread of their
-// own while the game goes on. The browser has no threads: there a map has a
-// par only when an imported STONEAGE.ENH brings one.
+// own while the game goes on. The browser has no threads: there only the free
+// set's maps have a par (assets/pars.txt), and those an imported STONEAGE.ENH
+// brings.
 class ParFinder {
 public:
     struct Found {
@@ -250,13 +251,15 @@ struct Player {
     uint32_t maps_crc = 0;
     std::unique_ptr<stone::LevelSet> played;
     std::unique_ptr<stone::Assets> assets;
-#ifndef __EMSCRIPTEN__
     // The pars of the level set played (E8): whether to look for the missing
-    // ones, and the search for them.
+    // ones, and on the desktop the search for them.
     bool pars_wanted = false;
+#ifndef __EMSCRIPTEN__
     std::unique_ptr<ParFinder> pars;
-    void find_pars();
 #endif
+    void find_pars();
+    // STONEAGE.ENH as the host changed it, written where the game writes it.
+    void store_settings();
     SDL_Window* window = nullptr;
     SDL_Renderer* renderer = nullptr;
     std::unique_ptr<stone::GameView> view;
@@ -504,30 +507,51 @@ void Player::choose_assets() {
     machine.levels = maps->count;
     machine.pack = pack;
     machine.pack_name = built_in ? "" : maps->name;
-#ifndef __EMSCRIPTEN__
     if (maps->crc() != maps_crc) { // another level set: its own pars
+#ifndef __EMSCRIPTEN__
         pars.reset();
+#endif
         pars_wanted = !scripted; // a scripted run stays the same every time
     }
-#endif
     maps_crc = maps->crc();
     played = std::move(maps);
 }
 
-#ifndef __EMSCRIPTEN__
-// Between ticks, where the game holds no settings of its own: the pars found
-// go into STONEAGE.ENH. The search starts once enhanced mode is on.
+// Between ticks, where the game holds no settings of its own, once enhanced
+// mode is on: the pars the free set comes with (assets/pars.txt) go into
+// STONEAGE.ENH, and on the desktop those of every other map are searched for,
+// and go there as they are found.
 void Player::find_pars() {
     if (pars_wanted && machine.enhanced) {
         pars_wanted = false;
-        const stone::Settings settings(settings_file);
+        stone::Settings settings(settings_file);
+        stone::Bytes file;
+        bool added = false;
+        if (machine.pack == stone::Settings::free_maps && free_package->read("pars.txt", file)) {
+            const stone::Settings known(file);
+            for (unsigned level = 1; level <= played->count; ++level) {
+                const stone::Settings::Par par = known.par(maps_crc, level);
+                if (par.kind != stone::Settings::Par::none &&
+                    settings.par(maps_crc, level).kind == stone::Settings::Par::none) {
+                    settings.set_par(maps_crc, level, par);
+                    added = true;
+                }
+            }
+        }
+        if (added) {
+            settings_file = settings.bytes();
+            store_settings();
+        }
+#ifndef __EMSCRIPTEN__
         std::vector<unsigned> levels;
         for (unsigned level = 1; level <= played->count; ++level)
             if (settings.par(maps_crc, level).kind == stone::Settings::Par::none)
                 levels.push_back(level);
         if (!levels.empty())
             pars.reset(new ParFinder(*played, levels));
+#endif
     }
+#ifndef __EMSCRIPTEN__
     if (!pars)
         return;
     const std::vector<ParFinder::Found> found = pars->take();
@@ -537,10 +561,18 @@ void Player::find_pars() {
     for (const ParFinder::Found& result : found)
         settings.set_par(maps_crc, result.level, result.par);
     settings_file = settings.bytes();
-    if (!fresh)
-        stone::write_file(score_directory + stone::Settings::file_name, settings_file);
-}
+    store_settings();
 #endif
+}
+
+void Player::store_settings() {
+    if (fresh)
+        return;
+    stone::write_file(score_directory + stone::Settings::file_name, settings_file);
+#ifdef __EMSCRIPTEN__
+    EM_ASM({ Module.storeSaves(); });
+#endif
+}
 
 stone::LevelSet Player::level_set(const std::string& pack) const {
     if (pack == stone::Settings::free_maps ||
@@ -657,9 +689,7 @@ bool Player::step() {
                machine.showing == stone::Machine::password);
 #endif
     }
-#ifndef __EMSCRIPTEN__
     find_pars();
-#endif
     const auto current = SDL_GetTicksNS();
     if (focused && !paused)
         clock.add(current - previous, scripted);

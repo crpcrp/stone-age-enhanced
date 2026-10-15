@@ -2,6 +2,7 @@
 // each rule, with its verdict and, where the moves are plain, its par. Each
 // solution is also proved in the real game when the asset package is given.
 #include "package.hpp"
+#include "settings.hpp"
 #include "solver.hpp"
 #include <cstdio>
 #include <iostream>
@@ -110,6 +111,23 @@ void teleports() {
     SOLVED({"LLLLLLLLL", "LRQLQLQSL", "LLLLLLLLL"}, solvable, 162, 50);
 }
 
+// The free set comes with the par of each of its levels (assets/pars.txt),
+// for the browser, which cannot search. A changed level needs them found again:
+//   stone_solve --pars assets/pars.txt assets/levels.txt
+void free_set_pars() {
+    if (!package)
+        return;
+    const stone::LevelSet set =
+        stone::read_levels(package->file("levels.txt"), "levels.txt", false);
+    stone::Bytes file;
+    CHECK(package->read("pars.txt", file));
+    const stone::Settings pars(file);
+    unsigned found = 0;
+    for (unsigned level = 1; level <= set.count; ++level)
+        found += pars.par(set.crc(), level).kind == stone::Settings::Par::solvable;
+    CHECK(found == 100);
+}
+
 void limits() {
     const stone::Solution solution =
         stone::solve(board({"LLLLLLLLL", "LREAAABSL", "LLLLLLLLL"}), 0, 2);
@@ -127,6 +145,7 @@ unsigned solver_tests(const std::string& package_path) {
     cracked_floors();
     time_and_hourglasses();
     teleports();
+    free_set_pars();
     limits();
     package.reset();
     if (!failures)

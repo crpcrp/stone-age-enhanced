@@ -20,6 +20,7 @@
 //   levels.txt               157e0  100 levels as text (format in the file itself and in
 //                                   levels.cpp), with their passwords (DS:1f24)
 //   texts.txt, colours.txt   texts and colours of the program image (content.cpp)
+//   pars.txt                 optional: the levels' pars, lines of STONEAGE.ENH (E8)
 //   tiles_1..5.bmp           17630, 18200, 18e40, 19a90, 1a710  40 tiles of 16x16, 8 per row
 //   background_a1..a5.bmp    1b340, 1d7f0, 1f7e0, 217b0, 23830  320x176
 //   background_b1..b5.bmp    41950, 46230, 4ac10, 4f690, 55510  320x176
@@ -397,6 +398,9 @@ void pack_assets(const std::string& directory, const std::string& package) {
         files[name] = loose.file(name);
     for (const char* name : {"texts.txt", "colours.txt"})
         files[name] = loose.file(name);
+    Bytes pars; // the levels' pars, found ahead of time (ENHANCEMENTS.md, E8); optional
+    if (loose.read("pars.txt", pars))
+        files["pars.txt"] = pars;
     write_package(package, files);
 }
 

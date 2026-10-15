@@ -13,7 +13,7 @@ refers to entries here by number (`ENHANCEMENTS.md, E1`).
 | E5 | Display presets | Done, without fullscreen |
 | E6 | Gamepad and touch | Done; not yet tried on real phones or gamepads |
 | E7 | Level packs | Done; not yet tried in the browser |
-| E8 | Solver | Done; par is not searched for in the browser |
+| E8 | Solver | Done; in the browser only the free set has pars |
 | E9 | Level editor | Planned |
 
 E9 is next; it builds on those before it.
@@ -344,11 +344,17 @@ types a word.
   par and the ticks the game took, and with `--keys` writes
   `DIR/levelNNN.keys`. It exits with 2 when a level is not solvable in time
   or a proof fails.
+- **The free set's pars come with it:** `assets/pars.txt`, written by
+  `stone_solve --pars`, holds a proved `par` line for each free level and
+  is packed into `stoneage.dat`. Once enhanced mode is on, the player copies
+  the lines it does not have yet into `STONEAGE.ENH`, in the browser too.
 - The desktop player, on a thread of its own, solves the maps of the level
-  set played that have no `par` line yet, once enhanced mode is on, and adds
-  the lines to `STONEAGE.ENH` between ticks. Not in scripted runs, so they
-  stay the same every time, and not in the browser, which has no threads.
-  The lines carry the set's CRC, so a changed map is solved again; a newer
+  set played that still have no `par` line (packs, the original's maps),
+  and adds the lines to `STONEAGE.ENH` between ticks. Not in the browser,
+  which has no threads: there a pack's maps have a par only if an imported
+  `STONEAGE.ENH` brings one.
+- Neither happens in scripted runs, so they stay the same every time. The
+  lines carry the set's CRC, so a changed map is solved again; a newer
   solver does not replace old lines.
 - **Selector:** the top line reads `MAP 12  41.3s  1250  PAR 38.0s`, closer
   together or without the points when that is too long; `UNSOLVABLE` when
@@ -410,8 +416,8 @@ played from its pack, and the saved file reads back the same.
 reading and writing level packs (E7). The solver (E8) is tried on a small
 board for each rule, with its verdict and where the moves are plain its par;
 given the asset package, as CTest gives it, each solution is proved in the
-game too. `solver_free_set` (label `long`, left out of the web workflow)
-solves and proves all 100 free levels. The tap tests (E6) compare
+game too, and the package is checked to have a par for each free level
+(`assets/pars.txt`); no test runs the solver on the free set. The tap tests (E6) compare
 screenshots. Planned additions: scripted runs through the selector,
 statistics and editor.
 
@@ -436,3 +442,6 @@ are run with enhanced mode off. They are outside this repository.
    a time; every solution it gives can be proved, and the free set is.
 8. **E8: too slow counts as unsolvable** in `STONEAGE.ENH`: the player
    cannot clear such a map.
+9. **E8: the free set's pars are shipped,** not searched for in the
+   browser: a search on the page's one thread would stop the game for
+   seconds a map. A Web Worker running the solver could do it for packs.

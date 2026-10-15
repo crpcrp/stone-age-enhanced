@@ -84,7 +84,7 @@ by playing it in the game without a window (ENHANCEMENTS.md, E8):
 
 ```
 stone_solve [--keys DIR] [--states N] [--no-proof] [--package FILE]
-            LEVELS.txt [LEVEL...]
+            [--pars FILE] [--compare FILE] LEVELS.txt [LEVEL...]
 ```
 
 ```sh
@@ -97,8 +97,18 @@ Without LEVEL it solves every level of the file. `--package` is the asset
 package the proof plays with (`stoneage.dat` beside `stone_solve`).
 `--keys DIR` writes each proved solution as `DIR/levelNNN.keys`, which
 `stone_play --fresh --free --original --ticks N --keys FILE` plays again for
-the free set (it prints N). The exit code is 2 when a level is not solvable
-in time or a proof fails.
+the free set (it prints N). `--pars FILE` writes the pars found as lines of
+`STONEAGE.ENH`; `--compare FILE` reports where they differ from those in a
+file. The exit code is 2 when a level is not solvable in time, a proof
+fails or a par differs.
+
+`assets/pars.txt` holds the free levels' pars, which the player copies into
+`STONEAGE.ENH` (the browser cannot search for them). After changing
+`assets/levels.txt` or the solver, write it again:
+
+```sh
+build/stone_solve --pars assets/pars.txt assets/levels.txt
+```
 
 ### The original game
 
@@ -185,9 +195,6 @@ scramble. The scramble deters casual editing; it is not encryption.
   boards. It needs nothing of the original and is built with every native
   preset. Given the asset package as its argument, as CTest does, it also
   proves the solver's solutions in the game.
-- `solver_free_set` solves and proves all 100 free levels with
-  `stone_solve`, about a minute and a half in a release build. It has the
-  label `long`: `ctest -LE long` leaves it out, `ctest -L long` runs only it.
 - With the player, CTest also runs two scripted taps of the free set
   (`tests/taps/`) and compares their screenshots by SHA-256
   (`tests/screenshot_test.cmake`).

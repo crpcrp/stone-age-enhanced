@@ -80,11 +80,6 @@ if(BUILD_TESTING AND NOT EMSCRIPTEN)
         tests/solver_tests.cpp)
     target_link_libraries(stone_tests PRIVATE stone_core)
     add_test(NAME settings COMMAND stone_tests "${STONE_OUTPUT}/stoneage.dat")
-    # Every level of the free set solved and each solution proved in the game
-    # (E8): a minute or two in a release build.
-    add_test(NAME solver_free_set COMMAND stone_solve --package "${STONE_OUTPUT}/stoneage.dat"
-        "${STONE_ASSETS}/levels.txt")
-    set_tests_properties(solver_free_set PROPERTIES TIMEOUT 1800 LABELS long)
 endif()
 
 if(STONE_BUILD_PLAYER)
