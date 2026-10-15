@@ -14,7 +14,7 @@ refers to entries here by number (`ENHANCEMENTS.md, E1`).
 | E6 | Gamepad and touch | Done; not yet tried on real phones or gamepads |
 | E7 | Level packs | Done; not yet tried in the browser |
 | E8 | Solver | Done; in the browser only the free set has pars |
-| E9 | Level editor | Done; its F9 line on the original's picture not yet seen |
+| E9 | Level editor | Done |
 
 ## Rules for every enhancement
 
@@ -369,9 +369,10 @@ build, 4 seconds for the slowest.
 
 Menu F9. The free title picture has an `F9 EDITOR` line; on the original's
 picture `add_editor_line` closes the lines up to 8 pixels apart and adds
-`F9 - EDITOR`, from letters of the picture where it has them (F, the dash,
-T, the 9 from its 6 and the E from its F) and D, I, O and R drawn in their
-colour. With enhanced mode off F9 does nothing.
+`F9 - EDITOR`, put together from letters of the lines above it (E and R of
+ENTER, D, I, O and T of SOUND OPTIONS, F and the dash of F8, the 9 from
+the 6 turned round), spaced as those lines are. With enhanced mode off F9
+does nothing.
 
 - **Opening:** F9 opens the map selector (E1) for the editor: every map of
   the level set played is shown, and after the last map of a pack with
