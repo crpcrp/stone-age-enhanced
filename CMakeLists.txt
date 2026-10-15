@@ -158,13 +158,16 @@ if(STONE_BUILD_PLAYER)
         # build/web/index.html with index.js, index.wasm and index.data (the
         # package, preloaded where the desktop finds it beside the player).
         set_target_properties(stone_play PROPERTIES OUTPUT_NAME index SUFFIX .html)
-        # web/saves.js keeps /save in IndexedDB and exports and imports it.
+        # web/saves.js keeps /save in IndexedDB and exports and imports it;
+        # web/original.js adds the original game from a zip.
         set_property(TARGET stone_play APPEND PROPERTY LINK_DEPENDS
-            "${CMAKE_SOURCE_DIR}/web/shell.html" "${CMAKE_SOURCE_DIR}/web/saves.js" "${STONE_PACKAGE}")
+            "${CMAKE_SOURCE_DIR}/web/shell.html" "${CMAKE_SOURCE_DIR}/web/saves.js"
+            "${CMAKE_SOURCE_DIR}/web/original.js" "${STONE_PACKAGE}")
         target_link_options(stone_play PRIVATE
             -sASYNCIFY -sALLOW_MEMORY_GROWTH -sSTACK_SIZE=1048576
             -lidbfs.js -sEXPORTED_RUNTIME_METHODS=ccall
             "--pre-js=${CMAKE_SOURCE_DIR}/web/saves.js"
+            "--pre-js=${CMAKE_SOURCE_DIR}/web/original.js"
             "--shell-file=${CMAKE_SOURCE_DIR}/web/shell.html"
             "--preload-file=${STONE_PACKAGE}@/stoneage.dat")
     endif()
