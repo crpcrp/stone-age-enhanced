@@ -549,7 +549,9 @@ void fm_operator<RegisterType>::start_attack(bool is_restart)
 		m_phase = 0;
 
 	// if the attack rate >= 62 then immediately go to max attenuation
-	if (m_cache.eg_rate[EG_ATTACK] >= 62)
+	// (stone-age-enhanced: >= 60 for the OPL, whose attack rate is 4 * AR
+	// + KSR: AR 15 attacks at once, as in Nuked-OPL3 and DOSBox)
+	if (m_cache.eg_rate[EG_ATTACK] >= 60)
 		m_env_attenuation = 0;
 }
 
@@ -710,7 +712,7 @@ void fm_operator<RegisterType>::clock_envelope(uint32_t env_counter)
 		// changed after the initial key on (where they are handled
 		// specially); nukeykt confirms this happens on OPM, OPN, OPL/OPLL
 		// at least so assuming it is true for everyone
-		if (rate < 62)
+		if (rate < 60)
 			m_env_attenuation += (~m_env_attenuation * increment) >> 4;
 	}
 

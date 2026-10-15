@@ -136,7 +136,7 @@ replacing files; it is not encryption.
 - `src/music.*`, `music_lift.inc`, `music_tables.inc`: the song format and
   the music driver; its output is OPL register writes.
 - `src/audio.*`: the music synthesized with ymfm's YM3812 emulator
-  (`third_party/ymfm/`, unmodified), one register write a sample.
+  (`third_party/ymfm/`, one change), one register write a sample.
 - `src/assets.*`, `content.*`, `package.*`, `assets_main.cpp`: the editable
   assets, the package format and `stone_assets`.
 - `src/play.cpp`, `host_*.hpp`: the SDL host (window, keys, audio, score
