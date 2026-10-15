@@ -158,17 +158,22 @@ if(STONE_BUILD_PLAYER)
         # build/web/index.html with index.js, index.wasm and index.data (the
         # package, preloaded where the desktop finds it beside the player).
         set_target_properties(stone_play PROPERTIES OUTPUT_NAME index SUFFIX .html)
+        # The page's footer links to the source it was built from; the
+        # workflow gives the exact commit (WEB_PLAN.md, GPL).
+        set(STONE_SOURCE_URL "https://github.com/crpcrp/stone-age-enhanced" CACHE STRING
+            "Where the web page's footer finds the source it was built from")
+        configure_file("${CMAKE_SOURCE_DIR}/web/shell.html" "${CMAKE_BINARY_DIR}/shell.html" @ONLY)
         # web/saves.js keeps /save in IndexedDB and exports and imports it;
         # web/original.js adds the original game from a zip.
         set_property(TARGET stone_play APPEND PROPERTY LINK_DEPENDS
-            "${CMAKE_SOURCE_DIR}/web/shell.html" "${CMAKE_SOURCE_DIR}/web/saves.js"
+            "${CMAKE_BINARY_DIR}/shell.html" "${CMAKE_SOURCE_DIR}/web/saves.js"
             "${CMAKE_SOURCE_DIR}/web/original.js" "${STONE_PACKAGE}")
         target_link_options(stone_play PRIVATE
             -sASYNCIFY -sALLOW_MEMORY_GROWTH -sSTACK_SIZE=1048576
             -lidbfs.js -sEXPORTED_RUNTIME_METHODS=ccall
             "--pre-js=${CMAKE_SOURCE_DIR}/web/saves.js"
             "--pre-js=${CMAKE_SOURCE_DIR}/web/original.js"
-            "--shell-file=${CMAKE_SOURCE_DIR}/web/shell.html"
+            "--shell-file=${CMAKE_BINARY_DIR}/shell.html"
             "--preload-file=${STONE_PACKAGE}@/stoneage.dat")
     endif()
     if(WIN32)

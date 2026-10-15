@@ -1,0 +1,82 @@
+# The web version (WEB_PLAN.md, milestone 5): built on every push and pull
+# request, published on GitHub Pages from main. Pull requests only build, so a
+# broken web build shows on them and is never published.
+name: Web
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  EMSDK_VERSION: 4.0.10 # as pinned in WEB_PLAN.md
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ninja
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      # stone_assets cannot run inside the wasm build: the native core packs
+      # assets/ into build/stoneage.dat, and its tests run on the way.
+      - name: Build the core and pack the free assets
+        run: |
+          cmake --preset core
+          cmake --build --preset core
+          ctest --test-dir build/cmake-core --output-on-failure
+
+      - name: Install emsdk
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: ${{ env.EMSDK_VERSION }}
+          actions-cache-folder: emsdk-cache
+
+      # The footer links to the source at the commit the page is built from.
+      - name: Build the web player
+        run: |
+          emcmake cmake --preset wasm \
+            -DSTONE_PACKAGE="$GITHUB_WORKSPACE/build/stoneage.dat" \
+            -DSTONE_SOURCE_URL="${{ github.server_url }}/${{ github.repository }}/tree/${{ github.sha }}"
+          cmake --build --preset wasm
+
+      - name: Put the site together
+        run: |
+          mkdir site
+          cp build/web/index.html build/web/index.js build/web/index.wasm build/web/index.data site/
+          cp LICENSE LEGAL.md site/
+          cp -r third_party/licenses site/licenses
+          ls -lR site
+
+      - name: Upload the site
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

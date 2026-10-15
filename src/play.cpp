@@ -23,6 +23,7 @@
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_hints.h>
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_keyboard.h>
 #include <SDL3/SDL_render.h>
@@ -156,6 +157,9 @@ struct Player {
     uint64_t previous = 0;
     uint8_t scan = 0;
     bool quit = false, focused = true, typing = false;
+    // In the browser the game stands still while the canvas does not have the
+    // keyboard, as before the first click (stone_focus).
+    bool paused = false;
     long ticks = 0;
     std::size_t next_key = 0;
     stone::Image image;
@@ -236,11 +240,20 @@ Player::Player(int argc, char** argv) {
     read(score_directory + stone::Settings::file_name, settings_file);
     choose_assets();
 
+    SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE | (scripted ? SDL_WINDOW_HIDDEN : 0);
+#ifdef __EMSCRIPTEN__
+    // Keys reach the game only while the canvas has them, so the rest of the
+    // page keeps its own. The page sizes the canvas in device pixels
+    // (web/shell.html), so whole multiples stay sharp on any screen. The
+    // window is made for WebGL at once: recreated for the renderer, it would
+    // drop the page's size on a high-density screen.
+    SDL_SetHint(SDL_HINT_EMSCRIPTEN_KEYBOARD_ELEMENT, "#canvas");
+    flags |= SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_OPENGL;
+    paused = true; // until the page's Click to play
+#endif
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_AUDIO))
         throw std::runtime_error(SDL_GetError());
-    if (!SDL_CreateWindowAndRenderer("Stone Age", 960, 600,
-                                     SDL_WINDOW_RESIZABLE | (scripted ? SDL_WINDOW_HIDDEN : 0),
-                                     &window, &renderer))
+    if (!SDL_CreateWindowAndRenderer("Stone Age", 960, 600, flags, &window, &renderer))
         throw std::runtime_error(SDL_GetError());
     view.reset(new stone::GameView(renderer));
 
@@ -367,7 +380,7 @@ bool Player::step() {
             SDL_StopTextInput(window);
     }
     const auto current = SDL_GetTicksNS();
-    if (focused)
+    if (focused && !paused)
         clock.add(current - previous, scripted);
     previous = current;
     bool advanced = image.rgb.empty();
@@ -478,6 +491,7 @@ bool original_asked = false;
 // The answer of the last add: empty, or what went wrong.
 std::string original_problem;
 bool game_ended = false;
+Player* web_player = nullptr;
 
 // The browser calls this once a frame. When the game ends (INT 21h/4Ch) the
 // page offers to play again in place of closing; the frames go on, so the
@@ -582,13 +596,28 @@ extern "C" EMSCRIPTEN_KEEPALIVE void stone_add_original() { original_asked = tru
 extern "C" EMSCRIPTEN_KEEPALIVE const char* stone_original_problem() {
     return original_problem.c_str();
 }
+
+// The canvas got or lost the keyboard (web/shell.html). Without it the game
+// stands still, as the desktop player does without focus, and a held key is
+// released because its key-up goes to the page.
+extern "C" EMSCRIPTEN_KEEPALIVE void stone_focus(int focus) {
+    Player* const player = web_player;
+    if (!player)
+        return;
+    player->paused = !focus;
+    if (!focus && player->scan && !(player->scan & 128))
+        player->scan |= 128;
+    if (focus)
+        player->clock.reset();
+}
 #endif
 
 int main(int argc, char** argv) {
     try {
 #ifdef __EMSCRIPTEN__
         // The player lives as long as the page; main returns at once.
-        emscripten_set_main_loop_arg(step_frame, new Player(argc, argv), 0, false);
+        web_player = new Player(argc, argv);
+        emscripten_set_main_loop_arg(step_frame, web_player, 0, false);
 #else
         Player player(argc, argv);
         while (player.step())
