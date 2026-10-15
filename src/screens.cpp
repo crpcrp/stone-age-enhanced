@@ -219,54 +219,50 @@ Game::MenuChoice Game::menu() const {
 }
 
 void Game::draw_menu() const {
+    // Not original (E4): the original's picture makes room for F8.
+    const bool stats_line = m.enhanced && m.original_assets && load_settings().original(Settings::images);
+    const unsigned up = stats_line ? 8 : 0;
+    if (stats_line)
+        add_stats_line();
     screen.show_picture();
+    if (stats_line)
+        load_picture(menu_picture);
     if (easy_mode() >= 0x80) { // LIGHT, in two sprites
         screen.draw_sprite(183, 218, 52);
         screen.draw_sprite(184, 239, 60);
     }
-    screen.draw_sprite(background_bank() & 1 ? 182 : 181, 208, 127); // A or B
-    if (m.enhanced) // not original (E4)
-        draw_stats_entry();
+    screen.draw_sprite(background_bank() & 1 ? 182 : 181, 208, 127 - up); // A or B
     screen.flip();
 }
 
 // Not original (ENHANCEMENTS.md, E4). The original's picture has no line for
-// F8: it is written below the others, in the 8x16 font of the asset set, on
-// a strip of the commonest colour there, in the colour of the picture that
-// stands out from that most. The font takes the buffer the picture is in, so
-// the picture is unpacked again afterwards.
-void Game::draw_stats_entry() const {
-    if (!m.original_assets || !load_settings().original(Settings::images))
-        return; // the free picture has the line drawn in
-    const char line[] = "F8 STATS";
-    const unsigned width = 8 * (sizeof line - 1), left = (320 - width) / 2, top = 184;
-    const uint8_t* const picture = m.at(picture_buffer()[1], 0);
-    const uint8_t* const palette = picture + 320 * 200;
-    unsigned uses[256] = {}, under[256] = {};
-    for (unsigned y = 0; y < 200; ++y)
-        for (unsigned x = 0; x < 320; ++x) {
-            const uint8_t colour = picture[y * 320 + x];
-            ++uses[colour];
-            if (y >= top - 2 && x >= left - 4 && x < left + width + 4)
-                ++under[colour];
-        }
-    const uint8_t ground = uint8_t(std::max_element(under, under + 256) - under);
-    const auto brightness = [&](unsigned colour) {
-        return int(palette[3 * colour] + palette[3 * colour + 1] + palette[3 * colour + 2]);
-    };
-    uint8_t ink = ground;
-    for (unsigned colour = 0; colour < 256; ++colour)
-        if (uses[colour] && std::abs(brightness(colour) - brightness(ground)) >
-                                std::abs(brightness(ink) - brightness(ground)))
-            ink = uint8_t(colour);
-    screen.fill(left - 4, top - 2, width + 8, 18, ground);
-    unpack(font_resource(), work_buffer());
-    const uint8_t colour = text_colour();
-    text_colour() = ink;
-    screen.move_to(left, top);
-    screen.write(reinterpret_cast<const uint8_t*>(line));
-    text_colour() = colour;
-    load_picture(menu_picture);
+// F8 (the free one has it drawn in). Its seven lines step down 10 pixels and
+// right 7, and an eighth would run into the eclipse stone, so they move up 8
+// pixels and the eighth, `F8 - STATS`, is put together from letters of the
+// lines above it. Its 8 is their 6, closed at the top and pinched in the
+// middle. The picture is unpacked again once it is shown.
+void Game::add_stats_line() const {
+    uint8_t* const picture = m.at(picture_buffer()[1], 0);
+    const std::vector<uint8_t> was(picture, picture + 320 * 200);
+    const uint8_t black = was[60 * 320 + 72];
+    for (unsigned y = 59; y < 134; ++y)
+        for (unsigned x = 72; x < 232; ++x)
+            picture[y * 320 + x] = y + 8 < 134 ? was[(y + 8) * 320 + x] : black;
+    struct Letter { unsigned from_x, from_y, width, to_x; };
+    const Letter line[] = {{115, 127, 5, 122}, {116, 117, 7, 130}, {134, 127, 6, 141},
+                           {212, 97, 7, 152},  {184, 97, 7, 160},  {140, 107, 7, 168},
+                           {184, 97, 7, 176},  {212, 97, 7, 184}};
+    const unsigned top = 129;
+    for (const Letter& letter : line)
+        for (unsigned y = 0; y < 7; ++y)
+            for (unsigned x = 0; x < letter.width; ++x)
+                picture[(top + y) * 320 + letter.to_x + x] =
+                    was[(letter.from_y + y) * 320 + letter.from_x + x];
+    uint8_t* const eight = picture + top * 320 + 130;
+    for (unsigned y = 1; y < 3; ++y)
+        for (unsigned x = 5; x < 7; ++x)
+            eight[y * 320 + x] = eight[(y + 3) * 320 + x];
+    eight[3 * 320] = eight[3 * 320 + 6] = black;
 }
 
 void Game::run_game(uint8_t first_level, bool counts) const {
