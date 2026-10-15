@@ -3,7 +3,7 @@
 
 namespace stone {
 // STONEAGE.ENH beside the player: what the enhanced game keeps between runs
-// (ENHANCEMENTS.md, E0 and E1). Never STONEAGE.HI, whose bytes stay the
+// (ENHANCEMENTS.md, E0 to E2). Never STONEAGE.HI, whose bytes stay the
 // original's. A text file of lines `key value...`; a line this version does
 // not know is kept as it is when the file is written again.
 class Settings {
@@ -16,6 +16,13 @@ public:
     // value, enhanced mode is on.
     bool enhanced() const;
     void set_enhanced(bool on);
+    // `images`, `maps` or `music` followed by `original` or `free`: which
+    // asset set that part comes from when the original game's files are
+    // there (E2). Without the line, or with any other value, the original.
+    enum Part { images, maps, music };
+    static const unsigned parts = 3;
+    bool original(Part part) const;
+    void set_original(Part part, bool on);
     // `reached <crc> <level>`: the furthest level, 1-100, ever started of the
     // level set whose records have this CRC-32 (ENHANCEMENTS.md, E1). 1
     // without the line or with a bad value.

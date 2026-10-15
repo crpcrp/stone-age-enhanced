@@ -47,14 +47,17 @@ incremental.
 ```
 
 `stone_play.exe`, `SDL3.dll` and `stoneage.dat` in one folder are all the
-game needs. New scores are written beside the player as `STONEAGE.HI`.
+game needs. New scores are written beside the player: `STONEAGE.HI` for the
+original maps, `FREEMAPS.HI` for the free ones.
 Audio-device errors are reported in the console; the game goes on silently.
 
-The player loads one asset package from its own folder: `stoneage.dat`, the
-free set, or `original.dat`, which it makes itself when it finds the original
+The player loads the asset packages in its own folder: `stoneage.dat`, the
+free set, and `original.dat`, which it makes itself when it finds the original
 game's files in a folder `original_data/` beside it or one folder above it
-(the repository root). `stone_play.exe --free` uses `stoneage.dat` even then.
-Delete `original.dat` after changing the original files.
+(the repository root). Options F2 then chooses images, maps and music from
+either one; without the original there is only the free set.
+`stone_play.exe --free` leaves `original.dat` out for one run. Delete
+`original.dat` after changing the original files.
 
 The original game is `SA_V1_00.EXE` (452,788 bytes, SHA-256
 `a979bc922b329297bbda2eb8b7f8375c466721bd439c9fd1b47a8db26444f927`) with its

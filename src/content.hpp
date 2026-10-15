@@ -16,6 +16,9 @@ std::map<std::string, Bytes> content_files(const Bytes& exe);
 // The program bytes the files in `package` give, by offset in the original
 // file. The program holds none of them: both files are required.
 void content_program(const Package& package, std::map<unsigned, Bytes>& program);
+// Of those, the jukebox texts and the song file names of `package`, over the
+// ones in `program`: the songs of another asset set than the rest.
+void song_program(const Package& package, std::map<unsigned, Bytes>& program);
 // The eight song file names the game opens (DS:15ec): those of an executable,
 // or those of texts.txt in `package`.
 std::vector<std::string> song_files(const Bytes& exe);

@@ -5,7 +5,10 @@
 //              [--screenshot FILE.bmp]
 // The asset package (made by stone_assets) defaults to stoneage.dat beside the
 // player: the free asset set. If the original game's files are found in a
-// folder original_data, they are used instead, unless --free is given.
+// folder original_data, Options can choose the original's graphics, maps and
+// music in its place, each on its own (STONEAGE.ENH); --free leaves them out
+// for this run. The original maps keep their scores in STONEAGE.HI, the free
+// ones in FREEMAPS.HI.
 // Enhanced mode follows the setting saved in STONEAGE.ENH (on without one);
 // --original turns it off for this run without changing the saved setting.
 // --keys gives a scripted run (--ticks) its keys: lines `tick scan`, the scan
@@ -81,7 +84,7 @@ void type_text(stone::Machine& machine, const char* utf8) {
 // files: SA_V1_00.EXE and the eight CMF songs in a folder original_data
 // beside the player, or beside the folder the player is in. They are packed
 // once into original.dat beside the player. Empty when they are not there.
-std::string original_package(const std::string& base) {
+std::string find_original_package(const std::string& base) {
     for (const std::string folder : {base + "original_data/", base + "../original_data/"}) {
         stone::Bytes unused;
         if (!read(folder + "SA_V1_00.EXE", unused))
@@ -137,16 +140,41 @@ int main(int argc, char** argv) {
                     "[--keys FILE] [--screenshot FILE.bmp]");
         }
         const bool scripted = scripted_ticks >= 0;
-        // Game files come from the asset package; new scores are stored beside
-        // the player.
+        // Game files come from the asset packages; new scores and settings
+        // are stored beside the player.
         const char* base = SDL_GetBasePath();
         const std::string score_directory = base ? base : "";
-        if (path.empty() && !free_set)
-            path = original_package(score_directory);
-        const stone::Package package(path.empty() ? score_directory + "stoneage.dat" : path);
-        if (!package.packed())
+        const stone::Package free_package(path.empty() ? score_directory + "stoneage.dat" : path);
+        if (!free_package.packed())
             throw std::runtime_error("Asset package not found. It is built by stone_assets.");
-        const stone::Assets assets(package);
+        std::unique_ptr<stone::Package> original_package;
+        if (path.empty() && !free_set) {
+            const std::string original = find_original_package(score_directory);
+            if (!original.empty())
+                original_package.reset(new stone::Package(original));
+        }
+        // Each part from the set STONEAGE.ENH chooses for it.
+        const stone::Package* parts[stone::Settings::parts];
+        std::unique_ptr<stone::Assets> assets;
+        auto choose_assets = [&]() {
+            stone::Bytes file;
+            read(score_directory + stone::Settings::file_name, file);
+            const stone::Settings settings(file);
+            for (unsigned n = 0; n < stone::Settings::parts; ++n)
+                parts[n] = original_package && settings.original(stone::Settings::Part(n))
+                               ? original_package.get()
+                               : &free_package;
+            assets.reset(new stone::Assets(*parts[stone::Settings::images],
+                                           *parts[stone::Settings::maps],
+                                           *parts[stone::Settings::music]));
+        };
+        choose_assets();
+        const stone::Package* const& song_package = parts[stone::Settings::music];
+        // STONEAGE.HI is the original's file, so only its maps' scores go there.
+        auto score_file = [&](const std::string& name) {
+            const bool free_maps = parts[stone::Settings::maps] == &free_package;
+            return score_directory + (free_maps && name == "STONEAGE.HI" ? "FREEMAPS.HI" : name);
+        };
 
         if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_AUDIO))
             throw std::runtime_error(SDL_GetError());
@@ -168,7 +196,7 @@ int main(int argc, char** argv) {
         std::string song_name;
         auto play_song = [&]() {
             stone::Bytes file;
-            if (!package.read(song_name, file))
+            if (!song_package->read(song_name, file))
                 return;
             auto song = stone::parse_song(file);
             if (music)
@@ -188,7 +216,12 @@ int main(int argc, char** argv) {
         };
 
         stone::Machine machine;
-        assets.install(machine);
+        assets->install(machine);
+        machine.original_assets = original_package != nullptr;
+        machine.change_assets = [&](stone::Machine& cpu) {
+            choose_assets();
+            assets->install(cpu);
+        };
         const auto now = std::time(nullptr);
         const auto local = std::localtime(&now);
         machine.seconds = scripted || !local ? 0 : unsigned(local->tm_sec);
@@ -208,10 +241,10 @@ int main(int argc, char** argv) {
         };
         machine.load_file = [&](const std::string& name, stone::Bytes& data) {
             // Without a saved table the game keeps the one built into it.
-            return read(score_directory + name, data);
+            return read(score_file(name), data);
         };
         machine.save_file = [&](const std::string& name, const stone::Bytes& data) {
-            stone::write_file(score_directory + name, data);
+            stone::write_file(score_file(name), data);
         };
         stone::Bytes settings; // empty when there is none: the defaults
         read(score_directory + stone::Settings::file_name, settings);

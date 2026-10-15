@@ -61,24 +61,33 @@ in one folder. [BUILDING.md](BUILDING.md) has more detail.
   with a new score and five lives. Maps not reached yet show as grey. Tab
   or P opens the password screen of the original (passwords still work
   there), Esc goes back.
-- **Options (F5):** F1 enhanced mode, F2 full background, F3 flat stone, F4
-  sound. With enhanced mode off the game is the original's: F2 in the menu
-  is the password screen and no progress is recorded.
+- **Options (F5):** F1 enhanced mode, F2 assets, F3 full background, F4
+  flat stone, F5 sound. With enhanced mode off the game is the original's:
+  F2 in the menu is the password screen and no progress is recorded.
   `stone_play.exe --original` plays one session that way without changing
   the setting.
+- **Assets (F2 in Options):** F1 images, F2 maps, F3 music, each FREE or
+  ORIG (the original game's). They can be changed only when the original
+  game's files are there (see below); F10 goes back to Options, which then
+  shows the images chosen. Images are all pictures, colours and texts; maps
+  are the levels with their passwords; music is the songs with their titles
+  in the jukebox.
 
-The furthest map reached, for each set of levels, and the enhanced-mode
-setting are kept in `STONEAGE.ENH` beside the player; the high scores stay
-in the original's `STONEAGE.HI`.
+The furthest map reached, for each set of levels, the enhanced-mode setting
+and the asset choices are kept in `STONEAGE.ENH` beside the player. The high
+scores of the original maps stay in the original's `STONEAGE.HI`; those of
+the free maps are in `FREEMAPS.HI`.
 
 ## Playing with the original game's content
 
 You need your own copy of the original game: `SA_V1_00.EXE` and its eight
 songs (the `.CMF` files beside it). Put them in a folder named
 `original_data`, either in this repository or beside `stone_play.exe`. The
-player then uses the original's pictures, songs, levels, passwords and texts;
-`stone_play.exe --free` plays the free set instead. Do not commit or
-distribute these files, or the `original.dat` the player makes from them.
+player then uses the original's pictures, songs, levels, passwords and texts,
+and Options F2 can switch each of images, maps and music back to the free
+set. `stone_play.exe --free` plays the free set only, for one run. Do not
+commit or distribute these files, or the `original.dat` the player makes from
+them.
 
 ## Rights
 

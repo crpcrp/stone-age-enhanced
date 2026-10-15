@@ -341,13 +341,24 @@ struct Game : GameNames {
     // CS:2dd0, 2dea. Text in the jukebox's own letters; CR starts a line.
     void write_jukebox(const uint8_t* text) const;
     void write_jukebox(uint8_t character) const;
-    // CS:2fb6. Options, changed in both modes (ENHANCEMENTS.md, E0): F1
-    // enhanced mode, F2 full background, F3 flat stone, F4 sound, F10
-    // leaves. The original's F1-F3 were the three after F1; its brightness
-    // keys F4 and F5 are gone, brightness stays as the game starts.
+    // CS:2fb6. Options, changed in both modes (ENHANCEMENTS.md, E0 and E2):
+    // F1 enhanced mode, F2 the assets, F3 full background, F4 flat stone, F5
+    // sound, F10 leaves. The original's F1-F3 were the last three; its
+    // brightness keys F4 and F5 are gone, brightness stays as the game starts.
     void options() const;
+    // The options picture with its sprites, shown.
+    void show_options_screen() const;
     // CS:2f4f, the lines drawn by code over the picture's.
     void draw_options() const;
+    // Not original. Lines of `count` over those of the options picture,
+    // each with sprite `sprites[n]` (ON or OFF) after it, or none for 0.
+    void draw_option_lines(const char* const* labels, const uint8_t* sprites,
+                           unsigned count) const;
+    // Not original (E2), F2 in Options: F1 images, F2 maps, F3 music, each
+    // free or the original's, F10 back to Options. They change only with
+    // the original game's files there; the choices are saved and the game
+    // takes its assets from them when this is left.
+    void asset_options() const;
     // Enhanced mode on or off, saved at once.
     void set_enhanced(bool on) const;
     // STONEAGE.ENH as it is saved (every default without one), and saved.
