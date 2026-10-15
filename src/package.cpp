@@ -97,6 +97,8 @@ void inflate_block(BitReader& s, Bytes& out, const Huffman& literals, const Huff
         }
     }
 }
+} // namespace
+
 Bytes inflate(const Bytes& in, std::size_t at, std::size_t size) {
     BitReader s{in, at, at + size};
     Bytes out;
@@ -154,6 +156,7 @@ Bytes inflate(const Bytes& in, std::size_t at, std::size_t size) {
     return out;
 }
 
+namespace {
 // Deflate with the fixed Huffman codes and a greedy three-byte hash match.
 struct BitWriter {
     Bytes out;

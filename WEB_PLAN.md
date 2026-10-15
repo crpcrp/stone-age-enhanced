@@ -5,7 +5,7 @@ Actions builds it on every push to `main` and publishes it on GitHub Pages.
 The site plays with the free assets in `assets/`. A player who owns the
 original game can add a zip of its files on the page; the zip stays in their
 browser and never reaches the server. Each milestone below ends with the
-check that shows it is done; milestone 1 is done.
+check that shows it is done; milestones 1 and 2 are done.
 
 ## Decisions
 
@@ -90,16 +90,33 @@ The desktop player's scripted runs give the same frames as before.
 **Done when:** a new high score and the map reached are still there after
 reloading the page, and after export, clearing site data and import.
 
+**Done.** `web/saves.js` (linked with `--pre-js`) mounts `/save` in
+`preRun` behind a run dependency, so `main` waits for the saves, and
+stores `/save` one `syncfs` at a time. The zip is made and read in C++
+(`src/zip.cpp`, with the inflate of `package.cpp` now in `package.hpp`;
+milestone 3 uses it too), through `stone_export_saves` and
+`stone_import_saves`. Export carries `STONEAGE.ENH`, `STONEAGE.HI`,
+`FREEMAPS.HI` and `original.dat`; import takes those names in any case,
+in a folder or not, replaces only those it holds (an `original.dat` must
+open as a package) and reloads the page. `stone_tests` checks the zip
+reader and writer.
+
+Checked in Chromium with Playwright: a setting changed in Options is in
+IndexedDB within 300 ms and is there after an immediate reload; the
+exported zip brings it back in a new profile; an imported `STONEAGE.ENH`
+with map 7 reached opens Maps with 1 to 7; a file that is not a zip and a
+zip without saves are refused with a message. The scores go through the
+same `save_file` as the settings; a new high score was not played for, as
+no key script that clears a free map is in the repository yet.
+
 ### 3. The original game from a zip
 
 - The page has **Add the original game (zip)**. The zip must hold
   `SA_V1_00.EXE` (452,788 bytes) and the eight `.CMF` songs, at its top or
   in one folder, with names in any case.
-- Unpacking is done in C++: a small zip reader (`src/zip.cpp`) that reads the
-  central directory and inflates entries with the inflate already in
-  `package.cpp` (moved out of its anonymous namespace into `package.hpp`).
-  Stored and deflated entries are enough; anything else is reported as an
-  unsupported zip.
+- Unpacking is done in C++ with `stone::read_zip` (`src/zip.cpp`, from
+  milestone 2), which reads stored and deflated entries and reports
+  anything else as an unsupported zip.
 - The entries are written to `/tmp/original_data/` in memory, each under
   the exact name the executable gives it (`song_files` in `assets.cpp`;
   the virtual file system tells case apart, a DOS zip may not), and

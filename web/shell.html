@@ -10,15 +10,23 @@
   canvas { display: block; outline: none; image-rendering: pixelated; }
   #status { margin: 12px; }
   #ended[hidden] { display: none; }
-  #ended button { font: inherit; padding: 8px 16px; }
+  button { font: inherit; padding: 8px 16px; }
+  #saves { margin: 12px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 </style>
 </head>
 <body>
 <!-- The page around the game. Milestone 4 of WEB_PLAN.md gives it its final
-     form; this one shows the canvas, loading and the end of a game. -->
+     form; this one shows the canvas, loading, the end of a game and the
+     saves' buttons (milestone 2). -->
 <canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
 <div id="status">Loading…</div>
 <div id="ended" hidden><button id="again">Play again</button></div>
+<!-- A browser may delete a site's storage: a zip of the saves keeps them. -->
+<div id="saves">
+  <button id="export">Export saves</button>
+  <button id="import">Import saves</button>
+  <input id="import-file" type="file" accept=".zip,application/zip" hidden>
+</div>
 <script>
   // The desktop player's options come from the page's address:
   // ?original turns the enhancements off for this run, ?free leaves the
@@ -40,6 +48,36 @@
     }
   };
   document.getElementById('again').onclick = function () { location.reload(); };
+  document.getElementById('export').onclick = function () {
+    var zip;
+    try {
+      zip = Module.exportSaves();
+    } catch (error) {
+      alert(error.message);
+      return;
+    }
+    var link = document.createElement('a');
+    link.href = URL.createObjectURL(new Blob([zip], { type: 'application/zip' }));
+    link.download = 'stone-age-saves.zip';
+    link.click();
+    setTimeout(function () { URL.revokeObjectURL(link.href); }, 1000);
+  };
+  var importFile = document.getElementById('import-file');
+  document.getElementById('import').onclick = function () { importFile.click(); };
+  importFile.onchange = function () {
+    var file = importFile.files[0];
+    importFile.value = '';
+    if (!file)
+      return;
+    file.arrayBuffer().then(function (buffer) {
+      Module.importSaves(new Uint8Array(buffer), function (problem) {
+        if (problem)
+          alert(problem);
+        else
+          location.reload(); // the game reads the imported saves as it starts
+      });
+    });
+  };
   canvas.addEventListener('click', function () { canvas.focus(); });
   window.onerror = function () { statusLine.textContent = 'The game stopped with an error; see the console.'; };
 </script>

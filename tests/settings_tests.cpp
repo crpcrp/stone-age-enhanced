@@ -152,6 +152,8 @@ void unknown_lines_kept() {
 }
 } // namespace
 
+unsigned zip_tests(); // zip_tests.cpp
+
 int main() {
     defaults();
     reading();
@@ -162,8 +164,7 @@ int main() {
     bad_statistics();
     display();
     unknown_lines_kept();
-    if (failures)
-        return 1;
-    std::cout << "settings_tests passed\n";
-    return 0;
+    if (!failures)
+        std::cout << "settings_tests passed\n";
+    return failures + zip_tests() ? 1 : 0;
 }

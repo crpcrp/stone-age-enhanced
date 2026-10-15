@@ -42,7 +42,7 @@ endif()
 option(STONE_BUILD_TESTS "Build and register the tests in research/tests (needs original_data/)" ${STONE_TESTS_DEFAULT})
 
 set(STONE_CORE_SOURCES src/stone.cpp src/machine.cpp src/game.cpp src/screens.cpp src/selector.cpp src/stats.cpp src/video.cpp
-    src/music.cpp src/assets.cpp src/content.cpp src/package.cpp src/settings.cpp)
+    src/music.cpp src/assets.cpp src/content.cpp src/package.cpp src/settings.cpp src/zip.cpp)
 add_library(stone_core ${STONE_CORE_SOURCES})
 target_include_directories(stone_core PUBLIC src)
 if(NOT EMSCRIPTEN) # in the browser readable code waits on a fiber, not a thread
@@ -74,7 +74,7 @@ endif()
 # Tests that need nothing of the original game (ENHANCEMENTS.md, Tests).
 include(CTest)
 if(BUILD_TESTING AND NOT EMSCRIPTEN)
-    add_executable(stone_tests tests/settings_tests.cpp)
+    add_executable(stone_tests tests/settings_tests.cpp tests/zip_tests.cpp)
     target_link_libraries(stone_tests PRIVATE stone_core)
     add_test(NAME settings COMMAND stone_tests)
 endif()
@@ -158,11 +158,14 @@ if(STONE_BUILD_PLAYER)
         # build/web/index.html with index.js, index.wasm and index.data (the
         # package, preloaded where the desktop finds it beside the player).
         set_target_properties(stone_play PROPERTIES OUTPUT_NAME index SUFFIX .html)
+        # web/saves.js keeps /save in IndexedDB and exports and imports it.
         set_property(TARGET stone_play APPEND PROPERTY LINK_DEPENDS
-            "${CMAKE_SOURCE_DIR}/web/shell.html" "${STONE_PACKAGE}")
+            "${CMAKE_SOURCE_DIR}/web/shell.html" "${CMAKE_SOURCE_DIR}/web/saves.js" "${STONE_PACKAGE}")
         target_link_options(stone_play PRIVATE
             -sASYNCIFY -sALLOW_MEMORY_GROWTH -sSTACK_SIZE=1048576
-            -lidbfs.js "--shell-file=${CMAKE_SOURCE_DIR}/web/shell.html"
+            -lidbfs.js -sEXPORTED_RUNTIME_METHODS=ccall
+            "--pre-js=${CMAKE_SOURCE_DIR}/web/saves.js"
+            "--shell-file=${CMAKE_SOURCE_DIR}/web/shell.html"
             "--preload-file=${STONE_PACKAGE}@/stoneage.dat")
     endif()
     if(WIN32)

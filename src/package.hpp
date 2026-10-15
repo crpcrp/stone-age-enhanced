@@ -17,6 +17,9 @@ private:
     std::string directory;
     std::map<std::string, Bytes> files;
 };
+// Raw deflate data (RFC 1951) of `size` bytes from `at`, unpacked; throws
+// when it is damaged. Zip entries use it too (zip.cpp).
+Bytes inflate(const Bytes& in, std::size_t at, std::size_t size);
 // Write a package file.
 void write_package(const std::string& path, const std::map<std::string, Bytes>& files);
 } // namespace stone
