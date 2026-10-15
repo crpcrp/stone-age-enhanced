@@ -105,7 +105,7 @@ Sprites 181-184 use the title screen's colours.
 
 | File | Shown | The game draws on it |
 |---|---|---|
-| `screen_title` | Menu | Sprites 181-184 as above. The menu text is part of the picture. The free one says `F2 MAPS` and has an `F8 STATS` line (y=135), and no lines for C (credits) and Esc, which still work. Its lines F1-F8 start at (107,65), 7 pixels high and 10 apart; taps and the cursor (ENHANCEMENTS.md, E6) expect them there, or change `Game::menu_lines` (`lines.cpp`) to match. On the original's picture the game moves its seven lines up 8 pixels and adds `F8 - STATS` |
+| `screen_title` | Menu | Sprites 181-184 as above. The menu text is part of the picture. The free one says `F2 MAPS` and has an `F8 STATS` line (y=135) and an `F9 EDITOR` line (y=145), and no lines for C (credits) and Esc, which still work. Its lines F1-F9 start at (107,65), 7 pixels high and 10 apart; taps and the cursor (ENHANCEMENTS.md, E6) expect them there, or change `Game::menu_lines` (`lines.cpp`) to match. On the original's picture the game moves its seven lines up 8 pixels and adds `F8 - STATS`, then closes the lines up to 8 pixels apart and adds `F9 - EDITOR` |
 | `screen_password` | F2 (Tab in the map selector) | Six 16x16 letters from (135,83): `password/00` is the empty cell, `01..26` are A-Z; their background is slot 254 |
 | `screen_options` | F5 | The picture's lines F1-F5 (88-211, 62-147) are covered with their commonest colour, and five lines are written over them in `font.bmp`, 17 pixels apart from y=64, in the colour the picture's lines use most: F1 enhanced mode, F2 setup, F3 full background, F4 flat stone, F5 sound; all but F2 end in `options/10` (ON, x=217) or `11` (OFF, x=214). Setup (F2) uses the same picture with F1 images, F2 music (each FREE or ORIG) and F3 VIEW (SHARP, CRT or SMOOTH), and NO ORIGINAL without the original's files. The F10 line stays as drawn; taps and the cursor expect it at y=156 from x=92, as in the free picture |
 | `screen_jukebox` | F4 | Song list from (72,61), eight lines of 8 pixels; the playlist at y=147; help below, from (32,168), a line of 8 pixels for each key. Taps and the cursor (E6) find the lines from the texts: the songs are F1-F8 in order, and a help line acts as the key its text starts with, `F9`, `DEL`, `F10` or `ESC` (`texts.txt`). Glyphs `jukebox/000..049` and `050..099` alternate by line: A-Z, then `. , " -` space space `! ? ( ' : ;`, 0-9 and two spare (`CS:2e1a`) |
@@ -118,6 +118,12 @@ miniatures of the levels from `tiles_1..5.bmp` (pixels 2, 7 and 12 of each
 tile, in the theme's `[tiles_n]` colours), writes in `font.bmp` and numbers
 the maps with the status-bar digits, sprites 124-133. Its list of level sets
 (L, E7) is drawn the same way, in `font.bmp` on black.
+
+The level editor (F9 in enhanced mode, ENHANCEMENTS.md E9) shows the board as
+a level does, in the level's colours, with a cursor of its own (slot 253). In
+place of `hud.bmp` its strip holds the tiles before, in and after the hand,
+and text in `font.bmp` on black (254): white (255), and from the level's
+palette grey (24), green (27) and red (28), which every `[palette_n]` keeps.
 
 `font.bmp`, 128x128: 128 characters of 8x16 from code 32, sixteen a row;
 codes 128-159 are the accented letters of code page 437. Any non-zero pixel

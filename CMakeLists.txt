@@ -42,7 +42,8 @@ endif()
 option(STONE_BUILD_TESTS "Build and register the tests in research/tests (needs original_data/)" ${STONE_TESTS_DEFAULT})
 
 set(STONE_CORE_SOURCES src/stone.cpp src/machine.cpp src/game.cpp src/screens.cpp src/selector.cpp src/stats.cpp src/lines.cpp src/video.cpp
-    src/music.cpp src/assets.cpp src/content.cpp src/package.cpp src/settings.cpp src/zip.cpp src/levels.cpp src/packs.cpp src/solver.cpp)
+    src/music.cpp src/assets.cpp src/content.cpp src/package.cpp src/settings.cpp src/zip.cpp src/levels.cpp src/packs.cpp src/solver.cpp
+    src/level_edit.cpp src/editor.cpp)
 add_library(stone_core ${STONE_CORE_SOURCES})
 target_include_directories(stone_core PUBLIC src)
 if(NOT EMSCRIPTEN) # in the browser readable code waits on a fiber, not a thread
@@ -77,7 +78,7 @@ endif()
 include(CTest)
 if(BUILD_TESTING AND NOT EMSCRIPTEN)
     add_executable(stone_tests tests/settings_tests.cpp tests/zip_tests.cpp tests/levels_tests.cpp
-        tests/solver_tests.cpp)
+        tests/solver_tests.cpp tests/level_edit_tests.cpp)
     target_link_libraries(stone_tests PRIVATE stone_core)
     add_test(NAME settings COMMAND stone_tests "${STONE_OUTPUT}/stoneage.dat")
 endif()
@@ -179,6 +180,15 @@ if(STONE_BUILD_PLAYER)
                 -DTICKS=${ticks} "-DOUT=${CMAKE_BINARY_DIR}/taps_${name}.bmp" -DSHA256=${hash}
                 -P "${CMAKE_SOURCE_DIR}/tests/screenshot_test.cmake")
         endforeach()
+        # The level editor (ENHANCEMENTS.md, E9): menu F9, N for a new pack,
+        # an hourglass placed, the theme changed twice and once undone, F10
+        # checks and saves the pack as Tour, which F2 then plays; the
+        # screenshot is of its level.
+        add_test(NAME editor_new_pack COMMAND ${CMAKE_COMMAND} -DPLAYER=$<TARGET_FILE:stone_play>
+            "-DPACKAGE=${STONE_OUTPUT}/stoneage.dat" "-DKEYS=${CMAKE_SOURCE_DIR}/tests/editor/new_pack.keys"
+            -DTICKS=2700 "-DOUT=${CMAKE_BINARY_DIR}/editor_new_pack.bmp"
+            -DSHA256=64e402adbc90f860640903f74e9fe5432301746c3637d0fd6423c4a5cd0dcb25
+            -P "${CMAKE_SOURCE_DIR}/tests/screenshot_test.cmake")
     endif()
     if(WIN32)
         add_custom_command(TARGET stone_play POST_BUILD

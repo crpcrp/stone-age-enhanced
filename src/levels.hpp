@@ -41,4 +41,12 @@ LevelSet read_levels(const Bytes& file, const std::string& path, bool pack);
 std::string write_levels(const LevelSet& set);
 // The six letters of the password of `level` (0-99).
 std::string password_letters(const LevelSet& set, unsigned level);
+// Not original (ENHANCEMENTS.md, E9), for the level editor. The levels of
+// `set` past `count` become copies of the last, records and passwords, as
+// read_levels leaves them, so that the game's arithmetic stays the same.
+void pad_levels(LevelSet& set);
+// A password for `level` (0-99), spelt unlike that of any other of the
+// set's first `count` levels, made from the set's CRC as read_levels makes
+// those a pack leaves out.
+void new_password(LevelSet& set, unsigned level);
 } // namespace stone

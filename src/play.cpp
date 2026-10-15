@@ -18,6 +18,8 @@
 // while the game reads characters, `tick tap x y`, a tap at that pixel of the
 // game's picture, as a finger's, or `tick text WORD`, typed. stone_solve
 // writes such files (ENHANCEMENTS.md, E8). A scripted run looks for no pars.
+// The level editor (E9) saves packs into levels/; a scripted run, or one
+// with --fresh, keeps them in memory instead.
 // --fresh plays as if nothing were saved yet: no STONEAGE.ENH, no scores.
 // A gamepad and taps on the screen's lines send keys too (ENHANCEMENTS.md,
 // E6); in the browser the page's buttons send them (stone_key, stone_type).
@@ -289,6 +291,10 @@ struct Player {
     void choose_assets();
     // Level packs (E7) live here, as text files.
     std::string pack_folder() const { return score_directory + "levels/"; }
+    // Packs the level editor saved (E9) in a scripted run or with --fresh,
+    // which keep them here instead (rule 5); they are read before levels/.
+    std::map<std::string, stone::Bytes> kept_packs;
+    std::string save_pack(const std::string& file, const stone::Bytes& data);
     // A pack read, or one of the built-in sets; throws when it does not read.
     stone::LevelSet level_set(const std::string& pack) const;
     // What the map selector's list offers (Machine::level_sets).
@@ -420,6 +426,9 @@ Player::Player(int argc, char** argv) {
         assets->install(cpu);
     };
     machine.level_sets = [this] { return level_sets(); };
+    machine.save_pack = [this](const std::string& file, const stone::Bytes& data) {
+        return save_pack(file, data);
+    };
     const auto now = std::time(nullptr);
     const auto local = std::localtime(&now);
     machine.seconds = scripted || !local ? 0 : unsigned(local->tm_sec);
@@ -584,7 +593,10 @@ stone::LevelSet Player::level_set(const std::string& pack) const {
     if (pack == stone::Settings::original_maps)
         throw std::runtime_error("the original game's files are not there");
     stone::Bytes file;
-    if (pack.find_first_of("/\\") != std::string::npos || !read(pack_folder() + pack, file))
+    const auto kept = kept_packs.find(pack);
+    if (kept != kept_packs.end())
+        file = kept->second;
+    else if (pack.find_first_of("/\\") != std::string::npos || !read(pack_folder() + pack, file))
         throw std::runtime_error("levels/" + pack + " cannot be read");
     stone::LevelSet set = stone::read_levels(file, pack, true);
     if (set.name.empty()) // the file's name without .txt
@@ -598,7 +610,13 @@ std::vector<stone::Machine::LevelSetEntry> Player::level_sets() const {
     std::vector<std::string> packs = {stone::Settings::free_maps};
     if (original_package)
         packs.push_back(stone::Settings::original_maps);
-    for (const std::string& file : files_in(pack_folder(), ".txt"))
+    std::vector<std::string> files = files_in(pack_folder(), ".txt");
+    for (const auto& kept : kept_packs)
+        if (std::none_of(files.begin(), files.end(),
+                         [&](const std::string& file) { return same_name(file, kept.first); }))
+            files.push_back(kept.first);
+    std::sort(files.begin(), files.end());
+    for (const std::string& file : files)
         packs.push_back(file);
     std::vector<stone::Machine::LevelSetEntry> sets;
     for (const std::string& pack : packs) {
@@ -619,6 +637,25 @@ std::vector<stone::Machine::LevelSetEntry> Player::level_sets() const {
         sets.push_back(entry);
     }
     return sets;
+}
+
+std::string Player::save_pack(const std::string& file, const stone::Bytes& data) {
+    if (file.empty() || file.find_first_of("/\\:") != std::string::npos)
+        return "a pack's file name may not name a folder";
+    if (scripted || fresh) {
+        kept_packs[file] = data;
+        return "";
+    }
+    SDL_CreateDirectory(pack_folder().c_str());
+    try {
+        stone::write_file(pack_folder() + file, data);
+    } catch (const std::exception& e) {
+        return e.what();
+    }
+#ifdef __EMSCRIPTEN__
+    EM_ASM({ Module.storeSaves(); });
+#endif
+    return "";
 }
 
 void Player::play_song() {

@@ -6,6 +6,7 @@
 // time and points of the map under the cursor. Progress is kept in
 // STONEAGE.ENH, one line per level set and one per cleared map.
 #include "game.hpp"
+#include "level_edit.hpp"
 #include <algorithm>
 #include <array>
 #include <string>
@@ -14,7 +15,8 @@
 namespace stone {
 namespace {
 // Scan codes.
-const uint8_t esc = 0x01, tab = 0x0f, key_p = 0x19, enter = 0x1c, key_l = 0x26, space = 0x39,
+const uint8_t esc = 0x01, tab = 0x0f, key_p = 0x19, enter = 0x1c, key_l = 0x26, key_n = 0x31,
+              space = 0x39,
               home = 0x47,
               arrow_up = 0x48, page_up = 0x49, arrow_left = 0x4b, arrow_right = 0x4d,
               end_key = 0x4f, arrow_down = 0x50, page_down = 0x51;
@@ -31,28 +33,36 @@ const unsigned samples[3] = {2, 7, 12};
 unsigned thumb_x(unsigned map) { return 8 + 62 * (map % per_row); }
 unsigned thumb_y(unsigned map) { return 22 + 44 * (map % per_page / per_row); }
 
-// L SETS in the header (E7), right of the best and left of the page marks.
-const unsigned sets_x = 212;
+// L SETS in the header (E7), right of the best and left of the page marks;
+// for the editor N NEW (E9) left of it.
+const unsigned sets_x = 212, new_pack_x = 156;
 
 // Where a tap acts (ENHANCEMENTS.md, E6): each miniature of the page of
 // `map` with its number, by its place on the page, of the `count` maps;
-// after them L SETS, which sends L.
-std::vector<Machine::Line> page_lines(unsigned map, unsigned count) {
+// after them L SETS, which sends L, and for the editor N NEW, which sends N.
+std::vector<Machine::Line> page_lines(unsigned map, unsigned count, bool editing) {
     std::vector<Machine::Line> lines;
     const unsigned first = map / per_page * per_page;
     for (unsigned n = first; n < std::min(first + per_page, count); ++n)
         lines.push_back({thumb_x(n), thumb_y(n), thumb_width, thumb_height + 8, 0});
     lines.push_back({sets_x, 2, 48, 14, key_l});
+    if (editing)
+        lines.push_back({new_pack_x, 2, 40, 14, key_n});
     return lines;
 }
 
 class MapSelector {
 public:
-    explicit MapSelector(const Game& game)
-        : g(game), screen(game.screen), maps(std::min(game.m.levels, records)),
+    // For the editor (E9) every map is shown, and a pack of fewer than 100
+    // has an empty slot after its last.
+    MapSelector(const Game& game, bool editing)
+        : g(game), screen(game.screen), editing(editing),
+          maps(std::min(game.m.levels + (editing && pack_slot(game) ? 1 : 0), records)),
           pages((maps + per_page - 1) / per_page) {}
     // True when it is to open again: another level set was chosen.
     bool run();
+    // For the editor: the map chosen, Game::edit_left or edit_new_pack.
+    int chosen = Game::edit_left;
 
 private:
     void gather();
@@ -70,11 +80,17 @@ private:
     // From the page of `from` to the page of `to`, 40 pixels a tick.
     void slide(unsigned from, unsigned to);
     void shake(unsigned map);
-    bool reached(unsigned map) const { return map < furthest; }
+    bool reached(unsigned map) const { return editing || map < furthest; }
+    // The empty slot of the editor.
+    bool slot(unsigned map) const { return map >= g.m.levels; }
+    static bool pack_slot(const Game& game) {
+        return game.m.pack != Settings::free_maps && game.m.pack != Settings::original_maps;
+    }
 
     const Game& g;
     const Screen& screen;
-    const unsigned maps, pages; // in the level set
+    const bool editing;
+    const unsigned maps, pages; // in the level set, with the editor's slot
     std::vector<uint8_t> boards; // 220 tiles a map
     uint8_t themes[records] = {};
     uint8_t tile_pixels[5][40][9] = {}; // [theme][sprite][column * 3 + row]
@@ -94,7 +110,9 @@ bool MapSelector::run() {
     draw(cursor);
     screen.flip();
     // A tap on a miniature moves the cursor there; on the cursor it plays.
-    LineCursor taps(g, Machine::selector, page_lines(cursor, maps));
+    if (editing)
+        cursor = std::min(last ? last - 1 : 0u, maps - 1);
+    LineCursor taps(g, Machine::selector, page_lines(cursor, maps, editing));
     fade(true);
     g.read_scan();
     for (unsigned ticks = 0;;) {
@@ -124,7 +142,7 @@ bool MapSelector::run() {
         case page_up: to -= per_page; break;
         case page_down: to += per_page; break;
         case home: to = 0; break;
-        case end_key: to = int(furthest) - 1; break;
+        case end_key: to = int(editing ? maps : furthest) - 1; break;
         case enter:
         case space:
             if (!reached(cursor)) {
@@ -133,10 +151,22 @@ bool MapSelector::run() {
             }
             taps.leave();
             fade(false);
-            g.run_game(uint8_t(cursor)); // as a password start
+            if (editing)
+                chosen = int(cursor);
+            else
+                g.run_game(uint8_t(cursor)); // as a password start
+            return false;
+        case key_n: // E9
+            if (!editing)
+                continue;
+            taps.leave();
+            fade(false);
+            chosen = Game::edit_new_pack;
             return false;
         case tab:
         case key_p:
+            if (editing)
+                continue;
             taps.leave();
             fade(false);
             g.enter_password();
@@ -151,7 +181,7 @@ bool MapSelector::run() {
         to = std::min(std::max(to, 0), int(maps) - 1);
         if (unsigned(to) / per_page != cursor / per_page) {
             slide(cursor, unsigned(to));
-            taps.replace(page_lines(unsigned(to), maps));
+            taps.replace(page_lines(unsigned(to), maps, editing));
         }
         cursor = unsigned(to);
         draw(cursor);
@@ -167,15 +197,18 @@ void MapSelector::gather() {
     furthest = settings.reached(set);
     last = settings.last(set);
     for (unsigned map = 0; map < maps; ++map)
-        bests[map] = settings.best(set, map + 1);
+        if (!slot(map))
+            bests[map] = settings.best(set, map + 1);
     const uint8_t* const records = g.far(g.work_buffer());
     const unsigned size = g.level_record_size();
     boards.resize(maps * Board::columns * Board::rows);
     for (unsigned map = 0; map < maps; ++map) {
         const uint8_t theme = uint8_t(records[map * size + 3] - '0');
         themes[map] = theme < 5 ? theme : 3;
-        std::copy_n(records + map * size + 7, Board::columns * Board::rows,
-                    &boards[map * Board::columns * Board::rows]);
+        std::copy_n(slot(map) ? LevelRecord::empty().bytes.data() + 7 : records + map * size + 7,
+                    Board::columns * Board::rows, &boards[map * Board::columns * Board::rows]);
+        if (slot(map))
+            themes[map] = 0;
     }
     // A theme's tiles are the first 40 sprites (CS:0fe9), column by column.
     const uint8_t* const sprite_records = g.far(g.sprite_records());
@@ -252,10 +285,14 @@ void MapSelector::draw(unsigned cursor, int shift) {
     write(8, 2, header(cursor));
     g.text_colour() = grey_slots + 6; // E7: the list of level sets
     write(sets_x, 2, "L SETS");
+    if (editing) // E9
+        write(new_pack_x, 2, "N NEW");
     g.text_colour() = grey_slots + 7;
     for (unsigned map = first; map < last_shown; ++map)
         if (!reached(map))
             write(thumb_x(map) + 26, thumb_y(map) + 9, "?");
+        else if (editing && slot(map))
+            write(thumb_x(map) + 18, thumb_y(map) + 9, "NEW");
     g.text_colour() = colour;
     for (unsigned page = 0; page < pages; ++page) {
         const unsigned x = 268 + 10 * page;
@@ -336,6 +373,8 @@ void MapSelector::draw_mark(uint8_t* pixels, unsigned map) const {
 // closer together and shorter where that is too long for the room left of
 // L SETS.
 std::string MapSelector::header(unsigned map) const {
+    if (editing) // E9
+        return (slot(map) ? "NEW MAP " : "EDIT MAP ") + std::to_string(map + 1);
     const std::string number = "MAP " + std::to_string(map + 1);
     // Read anew each time: the player finds pars while the game goes on.
     const Settings::Par par = g.load_settings().par(set_crc, map + 1);
@@ -410,7 +449,15 @@ std::string tick_seconds(unsigned ticks) {
 }
 
 void Game::map_selector() const {
-    while (MapSelector(*this).run()) {
+    while (MapSelector(*this, false).run()) {
+    }
+}
+
+int Game::choose_map_to_edit() const {
+    for (;;) {
+        MapSelector selector(*this, true);
+        if (!selector.run())
+            return selector.chosen;
     }
 }
 
