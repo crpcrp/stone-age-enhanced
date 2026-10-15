@@ -42,7 +42,7 @@ endif()
 option(STONE_BUILD_TESTS "Build and register the tests in research/tests (needs original_data/)" ${STONE_TESTS_DEFAULT})
 
 set(STONE_CORE_SOURCES src/stone.cpp src/machine.cpp src/game.cpp src/screens.cpp src/selector.cpp src/stats.cpp src/lines.cpp src/video.cpp
-    src/music.cpp src/assets.cpp src/content.cpp src/package.cpp src/settings.cpp src/zip.cpp src/levels.cpp src/packs.cpp)
+    src/music.cpp src/assets.cpp src/content.cpp src/package.cpp src/settings.cpp src/zip.cpp src/levels.cpp src/packs.cpp src/solver.cpp)
 add_library(stone_core ${STONE_CORE_SOURCES})
 target_include_directories(stone_core PUBLIC src)
 if(NOT EMSCRIPTEN) # in the browser readable code waits on a fiber, not a thread
@@ -66,6 +66,8 @@ else()
     add_executable(stone_assets src/assets_main.cpp)
     target_link_libraries(stone_assets PRIVATE stone_core)
     set(STONE_ASSETS "${CMAKE_SOURCE_DIR}/assets" CACHE PATH "Directory of editable asset files")
+    add_executable(stone_solve src/solve_main.cpp) # ENHANCEMENTS.md, E8
+    target_link_libraries(stone_solve PRIVATE stone_core)
     add_custom_target(stone_asset_package ALL
         COMMAND stone_assets pack "${STONE_ASSETS}" "${STONE_OUTPUT}/stoneage.dat"
         COMMENT "Packing assets/ into build/stoneage.dat")
@@ -74,9 +76,10 @@ endif()
 # Tests that need nothing of the original game (ENHANCEMENTS.md, Tests).
 include(CTest)
 if(BUILD_TESTING AND NOT EMSCRIPTEN)
-    add_executable(stone_tests tests/settings_tests.cpp tests/zip_tests.cpp tests/levels_tests.cpp)
+    add_executable(stone_tests tests/settings_tests.cpp tests/zip_tests.cpp tests/levels_tests.cpp
+        tests/solver_tests.cpp)
     target_link_libraries(stone_tests PRIVATE stone_core)
-    add_test(NAME settings COMMAND stone_tests)
+    add_test(NAME settings COMMAND stone_tests "${STONE_OUTPUT}/stoneage.dat")
 endif()
 
 if(STONE_BUILD_PLAYER)

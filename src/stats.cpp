@@ -49,6 +49,7 @@ private:
         unsigned number; // 1-100
         Settings::MapStats stats;
         Settings::Best best;
+        Settings::Par par; // E8
     };
     void gather();
     void sort();
@@ -113,7 +114,8 @@ void Statistics::gather() {
     totals = settings.totals();
     const uint32_t set = g.level_set();
     for (unsigned number = 1; number <= g.m.levels; ++number) { // E7: a pack may have fewer
-        const Map map = {number, settings.map_stats(set, number), settings.best(set, number)};
+        const Map map = {number, settings.map_stats(set, number), settings.best(set, number),
+                         settings.par(set, number)};
         if (map.best.cleared())
             ++cleared;
         if (map.stats.attempts)
@@ -154,17 +156,20 @@ std::vector<std::string> Statistics::lines(unsigned page) const {
         return text;
     }
     text.push_back(spread(by_attempts ? "MAPS BY ATTEMPTS" : "MAPS BY NUMBER", number));
-    text.push_back("MAP TRIES CLEAR LOST QUIT  BEST");
+    text.push_back("MAP TRIES WON LOST QUIT  BEST   PAR");
     if (played.empty())
         text.push_back("NONE PLAYED YET");
     const std::size_t first = (page - 1) * per_page;
     for (std::size_t n = first; n < std::min(played.size(), first + per_page); ++n) {
         const Map& map = played[n];
         text.push_back(pad(std::to_string(map.number), 3) +
-                       pad(std::to_string(map.stats.attempts), 6) + pad(std::to_string(map.stats.clears), 6) +
+                       pad(std::to_string(map.stats.attempts), 6) + pad(std::to_string(map.stats.clears), 4) +
                        pad(std::to_string(map.stats.lives_lost), 5) +
                        pad(std::to_string(map.stats.give_ups), 5) +
-                       pad(map.best.cleared() ? tick_seconds(map.best.ticks) : "-", 6));
+                       pad(map.best.cleared() ? tick_seconds(map.best.ticks) : "-", 6) +
+                       pad(map.par.kind == Settings::Par::solvable ? tick_seconds(map.par.ticks)
+                           : map.par.kind == Settings::Par::unsolvable ? "NONE"
+                                                                       : "-", 6));
     }
     return text;
 }

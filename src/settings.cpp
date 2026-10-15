@@ -163,6 +163,36 @@ unsigned Settings::improve_best(uint32_t levels, unsigned level, unsigned ticks,
 }
 
 namespace {
+std::string par_key(uint32_t levels, unsigned level) {
+    char text[32];
+    std::snprintf(text, sizeof text, "par %08x %u", unsigned(levels), level);
+    return text;
+}
+} // namespace
+
+Settings::Par Settings::par(uint32_t levels, unsigned level) const {
+    std::string value;
+    Par par;
+    if (!find(par_key(levels, level), value))
+        return par;
+    if (value == "unsolvable" || value == "unknown")
+        par.kind = value == "unsolvable" ? Par::unsolvable : Par::unknown;
+    else if (read_number(value, par.ticks) && par.ticks)
+        par.kind = Par::solvable;
+    else
+        par = Par();
+    return par;
+}
+
+void Settings::set_par(uint32_t levels, unsigned level, const Par& par) {
+    if (par.kind == Par::none)
+        return;
+    set(par_key(levels, level), par.kind == Par::solvable     ? std::to_string(par.ticks)
+                                : par.kind == Par::unsolvable ? "unsolvable"
+                                                              : "unknown");
+}
+
+namespace {
 // `count` numbers of up to 18 digits, one space apart; false for anything else.
 bool read_numbers(const std::string& text, uint64_t* numbers, unsigned count) {
     std::size_t at = 0;

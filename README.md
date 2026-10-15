@@ -4,7 +4,8 @@ An enhanced version of the 1992 DOS puzzle game **Stone Age** (Eclipse),
 built on a C++ reconstruction of its executable. With enhanced mode off the
 game matches the original tick for tick. With it on (the default) it adds a
 map selector, best times, statistics, display presets, gamepad support,
-touch controls and level packs of your own. It runs on Windows and in a web browser.
+touch controls, level packs of your own and a solver that gives each map a
+par time. It runs on Windows and in a web browser.
 
 This is an unofficial project, not affiliated with or endorsed by the
 original authors or rights holders.

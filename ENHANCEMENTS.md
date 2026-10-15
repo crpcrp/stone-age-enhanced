@@ -13,10 +13,10 @@ refers to entries here by number (`ENHANCEMENTS.md, E1`).
 | E5 | Display presets | Done, without fullscreen |
 | E6 | Gamepad and touch | Done; not yet tried on real phones or gamepads |
 | E7 | Level packs | Done; not yet tried in the browser |
-| E8 | Solver | Planned |
+| E8 | Solver | Done; in the browser only the free set has pars |
 | E9 | Level editor | Planned |
 
-E8 and E9 are listed in the order of work; each builds on those before it.
+E9 is next; it builds on those before it.
 
 ## Rules for every enhancement
 
@@ -54,6 +54,7 @@ E8 and E9 are listed in the order of work; each builds on those before it.
 | `reached <crc> <level>` | E1 |
 | `last <crc> <level>` | E2 |
 | `best <crc> <level> <ticks> <points>` | E3 |
+| `par <crc> <level> <ticks>\|unsolvable\|unknown` | E8 |
 | `stats <crc> <level> <attempts> <clears> <lives lost> <give-ups> <ticks>` | E4 |
 | `totals <ticks> <games> <cleared> <steps> <hourglasses> <keys> <gates> <teleports> <platforms>` | E4 |
 
@@ -274,53 +275,97 @@ files in a folder `levels/` beside the player.
 `stone_tests` reads packs of 1, 37 and 100 levels, names, passwords made and
 given, broken files with their lines, and a pack written and read back.
 
-## E8: solver (planned)
+## E8: solver
 
-A search that finds a solution to a map and proves it in the real game. It
-gives no hints during play. Uses:
+A search that finds the fastest way through a map and proves it in the real
+game. It gives no hints during play. Uses:
 
-- **Solvability** when a pack is loaded (E7) and when the editor saves (E9):
-  *solvable*, *unsolvable*, or *unknown* if the search hits its limit.
-- **Par:** the fewest ticks to clear the map, shown beside the best in the
-  selector and statistics.
+- **Par:** the fewest ticks to clear a map, as E3 counts them, shown beside
+  the best in the selector and in the statistics.
+- **Solvability** of a pack's maps (E7), and later of a map the editor saves
+  (E9): *solvable*, *unsolvable* (also when the exit can be reached only
+  after the time has run out), or *unknown* if the search hits its limit.
 - **A check on the free set:** all 100 levels solvable within their time.
 
 **Model.** `solver.{hpp,cpp}` in `stone_core`, plain C++ on one level record,
-not on a `Machine`. State: the player's cell, the selector, changeable tiles
-(platforms `C`-`I`, cracked floors `K` and `k`-`m`, hourglasses `J`, keys
-`O` `P`, gates `M` `N`), keys held, whether teleports are armed, and the
-time left. Rules from `game.cpp`, each tied to the routine it mirrors:
+not on a `Machine`. A state is where the game obeys keys: the player's cell,
+or the selector's and whether a platform waits for a direction; the tiles
+that can change (platforms, cracked and crumbling floors, hourglasses, keys
+and gates); keys held; whether the teleports are armed; the floors still
+crumbling and how long since they started; and two timing details: the
+mover has just landed, or Space is still down. Rules from `game.cpp`, each
+tied to the routine it mirrors:
 
-- `A`, `a`-`m` and `L` block the player; a gate blocks until a key of its
-  colour is held (`blocks`).
-- A step takes 16 ticks; a platform moves 2 pixels a tick, 8 ticks a cell.
-- A platform sets off when the player walks towards empty space (`A` or
-  `a`) in a direction it can go, and keeps going while there is empty space
-  ahead (`ride_platform`).
-- The selector flies over everything and can launch a platform from afar
-  (`drop_selector`); the countdown stops while it comes out.
-- A cracked floor crumbles once left; the exit does not open while a floor
-  is crumbling (`exit_open`).
-- Teleports lead to the next teleport (`step_on`, `next_teleport`); with
-  more than two, the player moves through them in turn until Space is held.
-- An hourglass adds 50 seconds. A level starts with `time + time/4`
-  seconds.
+- `A` and `a` are one tile to everything that moves (stone); `A`, `L`,
+  `b`-`m` and a gate without its key block the player (`blocks`).
+- A step takes 16 ticks; a platform or the selector 8 a cell.
+- Walking toward stone on a platform that goes that way sets it off; it goes
+  on while there is stone ahead (`walk`, `ride_platform`). On the tick it
+  lands the game still sees stone under the player, so it cannot set off
+  again before the next tick.
+- Space brings the selector out (no tick of the countdown passes) and calls
+  it back on anything but a platform that can go. On a platform with stone
+  on exactly one of its ways it sets it off; a `G`, `H` or `I` with stone on
+  several waits for a direction key (`drop_selector`). Space must go up
+  before it counts again.
+- A cracked floor starts to crumble when the player arrives on the next cell:
+  it blocks at once, is stone 18 ticks later, and keeps the exit shut for 24
+  (`arrive`, `exit_open`, `crumble_tiles`). A platform landing on one still
+  crumbling would be drawn over, so the model does not let it.
+- Teleports: with two, 86 ticks from arriving on one to obeying keys at the
+  other; with more, 43 more for each further one offered before Space is
+  held (`teleport`, `after_teleport_animation`). Leaving a teleport, or
+  being stopped, arms them again (`probe`).
+- An hourglass adds 50 seconds. A level starts with `time + time/4` seconds
+  and is lost on the tick they run out.
 
-**Search.** Breadth-first over moves, ignoring time, for solvability; then
-Dijkstra on ticks for par and the time check. States differing only in
-tiles the player can no longer reach are merged. The search stops at a
-state limit (about 2 million, to be tuned) and reports *unknown*.
+**Search.** Dijkstra on ticks, with states past the countdown dropped; if
+that finds nothing, again without the time, to tell *too slow* from
+*unsolvable*. Waiting a tick is a move only while a floor crumbles, the one
+thing that changes with time. States are kept as bytes (four bits a changing
+tile) in one hash table. The search stops at 2 million states and reports
+*unknown*; the free set needs at most 767 thousand, about 110 MB.
 
-**Proof.** A solution is a `--keys` file, played through `Game` on a
-`Machine` without a window; it must clear the level. A failing solution is
-a solver bug, not a verdict on the map.
+**Proof.** `prove()` plays a solution through `Game` on a `Machine` without a
+window, from the start of the program: past the title, menu F2 with enhanced
+mode off (the password screen), the level's password, its first page, then
+the solution's keys. Each key is pressed when the game is about to obey keys
+with the player (or selector) on the cell the model expects, and not before
+the model's tick; so a model that is wrong shows as a run that goes astray. A
+failing solution is a solver bug, not a verdict on the map. The run is kept as
+a `--keys` file, which `stone_play --fresh --free --original` plays again;
+scripted keys type while the game reads characters, and `tick text WORD`
+types a word.
 
-**Where it runs:** `stone_solve levels.txt [level]` on the command line,
-and in the player on a background thread when a set is loaded. Results are
-cached as `par <crc> <level> <ticks>|unsolvable|unknown`.
+**Where it runs:**
 
-**Done when** every free level is solved and its solution clears it in the
-real game, and small boards for each rule give the expected results.
+- `stone_solve [--keys DIR] [--states N] [--no-proof] [--package FILE]
+  levels.txt [level...]`: solves and proves each level, prints its verdict,
+  par and the ticks the game took, and with `--keys` writes
+  `DIR/levelNNN.keys`. It exits with 2 when a level is not solvable in time
+  or a proof fails.
+- **The free set's pars come with it:** `assets/pars.txt`, written by
+  `stone_solve --pars`, holds a proved `par` line for each free level and
+  is packed into `stoneage.dat`. Once enhanced mode is on, the player copies
+  the lines it does not have yet into `STONEAGE.ENH`, in the browser too.
+- The desktop player, on a thread of its own, solves the maps of the level
+  set played that still have no `par` line (packs, the original's maps),
+  and adds the lines to `STONEAGE.ENH` between ticks. Not in the browser,
+  which has no threads: there a pack's maps have a par only if an imported
+  `STONEAGE.ENH` brings one.
+- Neither happens in scripted runs, so they stay the same every time. The
+  lines carry the set's CRC, so a changed map is solved again; a newer
+  solver does not replace old lines.
+- **Selector:** the top line reads `MAP 12  41.3s  1250  PAR 38.0s`, closer
+  together or without the points when that is too long; `UNSOLVABLE` when
+  there is no way through. Nothing for a map not reached, or not solved yet.
+- **Statistics:** a `PAR` column after `BEST` (`NONE` when unsolvable). To
+  make room, `CLEAR` is now `WON`.
+
+**Results:** every free level is solvable within its time, each solution
+clears it in the real game, and the game takes exactly the ticks the model
+says. `stone_solve` takes about a minute and a half for all 100 in a release
+build, 4 seconds for the slowest.
 
 ## E9: level editor (planned)
 
@@ -354,7 +399,8 @@ The 3×3 rock (`b`-`j`) is placed and removed as one piece; `k`-`m` cannot be
 placed. **Checks:** exactly one start (`R`) and at least one exit (`S`);
 keys without gates or gates without keys (warning); the solver (E8), where
 an unsolvable level can still be saved with a warning and a solvable one
-shows its par. **Saving** goes through E7's parser, so a saved pack always
+shows its par. In the browser the solver would have to run on the page's
+one thread. **Saving** goes through E7's parser, so a saved pack always
 reads back and stays editable by hand. Mouse painting is out of scope: the
 game receives only scan bytes.
 
@@ -367,10 +413,13 @@ played from its pack, and the saved file reads back the same.
 
 `stone_tests` (`tests/`) runs without the original game. It covers every
 `STONEAGE.ENH` line, including keeping unknown lines, the zip code, and
-reading and writing level packs (E7). The tap tests (E6) compare
-screenshots. Planned additions: the solver on small boards and on the whole
-free set (E8), and scripted runs through the selector, statistics and
-editor.
+reading and writing level packs (E7). The solver (E8) is tried on a small
+board for each rule, with its verdict and where the moves are plain its par;
+given the asset package, as CTest gives it, each solution is proved in the
+game too, and the package is checked to have a par for each free level
+(`assets/pars.txt`); no test runs the solver on the free set. The tap tests (E6) compare
+screenshots. Planned additions: scripted runs through the selector,
+statistics and editor.
 
 With each enhancement, the comparison tests with the original executable
 are run with enhanced mode off. They are outside this repository.
@@ -386,5 +435,13 @@ are run with enhanced mode off. They are outside this repository.
    `STONEAGE.HI` stays the original maps' and `FREEMAPS.HI` the free ones'.
 5. **E7: the maps are a level set,** chosen in the selector's list with the
    packs, not a part of Options F2 like the images and the music.
-6. **E8: the state limit** of 2 million is a guess, to be tuned on the
-   hardest free levels.
+6. **E8: the state limit** stays at 2 million: the hardest free level
+   needs 767 thousand.
+7. **E8: one model, checked by the game.** The solver models the rules
+   rather than searching on a `Machine`, which runs the whole game a tick at
+   a time; every solution it gives can be proved, and the free set is.
+8. **E8: too slow counts as unsolvable** in `STONEAGE.ENH`: the player
+   cannot clear such a map.
+9. **E8: the free set's pars are shipped,** not searched for in the
+   browser: a search on the page's one thread would stop the game for
+   seconds a map. A Web Worker running the solver could do it for packs.

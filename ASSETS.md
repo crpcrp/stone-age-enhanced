@@ -181,6 +181,15 @@ Level rules (from `src/game.cpp`):
 - With two teleports, stepping on one comes out at the other.
 - Stepping on the exit ends the level.
 
+## Pars: `pars.txt`
+
+The par of each free level (ENHANCEMENTS.md, E8): `par <crc> <level>
+<ticks>` lines of `STONEAGE.ENH`, the CRC that of `levels.txt`. Written by
+`stone_solve --pars assets/pars.txt assets/levels.txt`, which proves each
+solution in the game; write it again after changing a level. The player
+copies the lines into `STONEAGE.ENH`. The file is optional: without it, or
+for a changed level, the desktop player searches for the par itself.
+
 ## Texts and colours: `texts.txt`, `colours.txt`
 
 Both are required: the program holds none of these texts and colours.
