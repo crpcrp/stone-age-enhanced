@@ -2,49 +2,94 @@
 
 ## Requirements
 
-- CMake 3.25 or newer and a C++14 compiler. On Windows, Visual Studio 2022
-  (or its Build Tools) with the C++ workload provides both, and opens the
-  folder directly as a CMake project.
+- CMake 3.25+ and a C++14 compiler. On Windows, Visual Studio 2022 or its
+  Build Tools with the C++ workload provides both and opens the folder as a
+  CMake project.
 - An internet connection for the first build. CMake downloads SDL3 3.4.16
-  into the build tree and checks it against pinned SHA-256 hashes; nothing
-  else needs installing. On Windows it uses
-  SDL's prebuilt development package; elsewhere it uses an installed SDL3
-  when there is one and otherwise builds SDL from source. To use local
-  copy, set `FETCHCONTENT_SOURCE_DIR_SDL3_MINGW` (Windows) or
+  into the build tree and checks it against a pinned SHA-256. On Windows it
+  uses SDL's prebuilt development package; elsewhere an installed SDL3 3.4+
+  if there is one, otherwise SDL built from source. To use a local copy, set
+  `FETCHCONTENT_SOURCE_DIR_SDL3_MINGW` (Windows) or
   `FETCHCONTENT_SOURCE_DIR_SDL3`.
 
 ## Build
 
-With CMake on `PATH`, from the repository root:
-
-```powershell
+```sh
 cmake --preset default
 cmake --build --preset default
 ```
 
-Other presets: `ninja` (Ninja with GCC or Clang), `core` (the portable
-core and the asset packer only, without SDL and the player) and `wasm` (the
-web version, below). Plain `cmake -S . -B build/cmake` works as well.
+| Preset | Builds | Build tree |
+|---|---|---|
+| `default` | Player, asset packer, `stone_tests` | `build/cmake` |
+| `ninja` | The same with Ninja (GCC or Clang) | `build/cmake-ninja` |
+| `core` | Core library, asset packer and `stone_tests`; no SDL | `build/cmake-core` |
+| `wasm` | The web version (below) | `build/cmake-wasm` |
+| `test` | `default` plus the comparison tests (see Tests) | `build/cmake` |
 
-On Windows, `build.ps1` does the same and finds the CMake that Visual Studio
-installs when none is on `PATH`:
+On Windows, `build.ps1` runs the same presets and finds the CMake that
+Visual Studio installs when none is on `PATH`:
 
 ```powershell
-.\build.ps1
-.\build.ps1 -Compiler C:\path\to\g++.exe   # Ninja with GCC or Clang
-.\build.ps1 -CoreOnly
+.\build.ps1                          # default
+.\build.ps1 -Compiler C:\path\to\g++.exe   # ninja, with that compiler
+.\build.ps1 -CoreOnly                # core
+.\build.ps1 -Test                    # test, then runs ctest
 ```
 
-Outputs are written to `build/`: `stone_play.exe`, `SDL3.dll`,
-`stoneage.dat` (the packed `assets/`), `stone_assets.exe` and the legal
-notices. The CMake build trees are in `build/cmake*`; later builds are
-incremental.
+Every build writes to `build/`: `stone_play` (`.exe` on Windows),
+`stone_assets`, `stoneage.dat` (the packed `assets/`), `LICENSE`,
+`LEGAL.md`, the `licenses/` folder and, on Windows, `SDL3.dll`.
+
+## Run
+
+`stone_play`, `stoneage.dat` and (on Windows) `SDL3.dll` in one folder are
+all the game needs.
+
+```
+stone_play [package] [--free] [--original] [--fresh] [--ticks N]
+           [--keys FILE] [--screenshot FILE.bmp]
+```
+
+| Option | Effect |
+|---|---|
+| `package` | Asset package to load instead of `stoneage.dat` beside the player. |
+| `--original` | Enhanced mode off for this run, without changing the setting. |
+| `--free` | Ignore the original game's files for this run. |
+| `--fresh` | Play as if nothing were saved: no `STONEAGE.ENH`, no scores. |
+| `--ticks N` | Scripted run: stop after N ticks (70 a second). Saves nothing. |
+| `--keys FILE` | Keys for a scripted run: lines `tick scan` (scan byte in hex, 80h added for a release) or `tick tap x y` (a tap at that pixel of the 320x200 picture). |
+| `--screenshot FILE.bmp` | Write the last frame when the run ends. |
+
+Files written beside the player:
+
+- `STONEAGE.ENH`: everything enhanced mode keeps (settings, progress, bests,
+  statistics); see [ENHANCEMENTS.md](ENHANCEMENTS.md).
+- `STONEAGE.HI`: high scores of the original's levels, in the original's
+  format.
+- `FREEMAPS.HI`: high scores of the free levels, same format.
+- `original.dat`: the original game's files, packed (below).
+
+Audio-device errors are reported on the console; the game goes on silently.
+
+### The original game
+
+To play with the original's pictures, songs, levels and texts you need your
+own copy: `SA_V1_00.EXE` version 1.00 (452,788 bytes, SHA-256
+`a979bc922b329297bbda2eb8b7f8375c466721bd439c9fd1b47a8db26444f927`) and its
+eight `.CMF` songs. Put them in a folder `original_data/` beside the player
+or one folder above it (from `build/`, that is the repository root). The
+player packs them once into `original.dat` beside itself; delete that file
+after changing the original files. Options F2 (setup) then chooses images,
+maps and music from either set.
+
+Do not commit or distribute these files or `original.dat`.
 
 ## Web version
 
-The browser build needs Emscripten (emsdk 4.0.10, as pinned in
-`.github/workflows/web.yml`) and Ninja, and the package the `core` preset
-packs, since `stone_assets` cannot run inside the browser build:
+Needs Emscripten (emsdk 4.0.10, as pinned in `.github/workflows/web.yml`),
+Ninja, and the package from a native `core` build, since `stone_assets`
+cannot run inside the wasm build:
 
 ```sh
 cmake --preset core && cmake --build --preset core
@@ -52,165 +97,115 @@ emcmake cmake --preset wasm
 cmake --build --preset wasm
 ```
 
-The page is `build/web/index.html` with `index.js`, `index.wasm` and
-`index.data`; serve the folder over HTTP (`python3 -m http.server -d
-build/web`) rather than opening the file. `web/shell.html` is the page
-around the canvas, `web/saves.js` keeps the saves in IndexedDB and
-`web/original.js` adds the original game from a zip.
+The output is `build/web/` (`index.html`, `.js`, `.wasm`, `.data`, the
+manifest and icons). Serve it over HTTP, for example
+`python3 -m http.server -d build/web`.
 
-How it differs from the desktop:
+Differences from the desktop:
 
-- **No threads.** `Machine::Turns` (`machine.cpp`) hands turns between the
-  host and the game's routines with Emscripten fibers (`-sASYNCIFY`) in place
-  of a thread, so the page needs no `SharedArrayBuffer` and no cross-origin
-  isolation headers, which GitHub Pages cannot send.
-- **One step a frame.** The body of the loop in `play.cpp` is one step
-  function; the desktop calls it in its loop, the browser once a frame
-  (`emscripten_set_main_loop_arg`). When the game ends the page offers
-  "Play again". The game stands still until the canvas has the keyboard.
-- **Saves.** `/save` is IndexedDB (IDBFS), read in before the game starts
-  and written after each save. **Export saves** and **Import saves** zip
-  `STONEAGE.ENH`, `STONEAGE.HI`, `FREEMAPS.HI` and `original.dat`
-  (`src/zip.cpp`).
-- **The original game.** The zip a player adds is unpacked in memory, its
-  executable's size and SHA-256 checked, and packed into
-  `/save/original.dat` as on the desktop; the loose files are deleted.
-- **Options.** `?original` and `?free` in the page's address stand for
+- **No threads.** `Machine::Turns` (`machine.cpp`) switches between the host
+  and the game with Emscripten fibers (`-sASYNCIFY`), so the page needs no
+  `SharedArrayBuffer` or cross-origin isolation headers, which GitHub Pages
+  cannot send.
+- **One step a frame.** `play.cpp`'s loop body is a step function the
+  browser calls once a frame (`emscripten_set_main_loop_arg`). The game
+  waits while the canvas does not have focus.
+- **Saves** live in `/save`, kept in IndexedDB by `web/saves.js`.
+  **Export saves** and **Import saves** zip `STONEAGE.ENH`, `STONEAGE.HI`,
+  `FREEMAPS.HI` and `original.dat` (`src/zip.cpp`).
+- **The original game.** **Add the original game (zip)** takes a zip of
+  `SA_V1_00.EXE` and its songs. `web/original.js` unpacks it in the browser,
+  the executable's size and hash are checked, and it is packed into
+  `/save/original.dat`. Nothing is uploaded.
+- **Options.** `?original` and `?free` in the address stand for
   `--original` and `--free`.
-- **Touch** (ENHANCEMENTS.md, E6). On a touch screen (`pointer: coarse`) the
-  page shows buttons beside the picture that send keys through
-  `stone_key(scan, down)`, a text field for typing while the game reads
-  characters (`stone_type`), and a ✕ that leaves fullscreen. Taps on the
-  picture reach the game as SDL finger events. `web/manifest.webmanifest`
-  and its icons let a phone add the page to its home screen, fullscreen and
-  sideways.
+- **Touch.** On a touch screen (`pointer: coarse`) the page adds buttons
+  beside the picture, a text field for typing, and a button that leaves
+  fullscreen; see ENHANCEMENTS.md, E6. `web/manifest.webmanifest` lets a
+  phone add the page to its home screen.
 
 `.github/workflows/web.yml` builds the page on every push and pull request
-and publishes it on GitHub Pages from `main`, with `LICENSE`, `LEGAL.md`
-and the notices. Pages must be set once to deploy from Actions: Settings →
-Pages → Build and deployment → Source: GitHub Actions.
-
-## Run
-
-```powershell
-.\build\stone_play.exe
-```
-
-`stone_play.exe`, `SDL3.dll` and `stoneage.dat` in one folder are all the
-game needs. New scores are written beside the player: `STONEAGE.HI` for the
-original maps, `FREEMAPS.HI` for the free ones.
-Audio-device errors are reported in the console; the game goes on silently.
-
-The player loads the asset packages in its own folder: `stoneage.dat`, the
-free set, and `original.dat`, which it makes itself when it finds the original
-game's files in a folder `original_data/` beside it or one folder above it
-(the repository root). Options F2 then chooses images, maps and music from
-either one; without the original there is only the free set.
-`stone_play.exe --free` leaves `original.dat` out for one run. Delete
-`original.dat` after changing the original files.
-
-The original game is `SA_V1_00.EXE` (452,788 bytes, SHA-256
-`a979bc922b329297bbda2eb8b7f8375c466721bd439c9fd1b47a8db26444f927`) with its
-eight `.CMF` songs beside it.
+and, from `main`, publishes it to GitHub Pages with `LICENSE`, `LEGAL.md`
+and the licence notices. Pages must be set once to deploy from Actions
+(Settings → Pages → Source: GitHub Actions).
 
 ## Assets
 
-`assets/` holds the free pictures, songs, levels, texts and colours; all of
-it is yours to edit, and every build packs it into `build/stoneage.dat`.
-[ASSETS.md](ASSETS.md) describes each file and what the game does with it.
-By hand:
+`assets/` holds the free set; every native build packs it into
+`build/stoneage.dat`. [ASSETS.md](ASSETS.md) describes each file. By hand:
 
-```powershell
-.\build\stone_assets.exe pack assets build\stoneage.dat
-.\build\stone_assets.exe export original_data\SA_V1_00.EXE some\folder
-.\build\stone_assets.exe verify original_data\SA_V1_00.EXE some\folder
+```sh
+stone_assets pack assets build/stoneage.dat
+stone_assets export original_data/SA_V1_00.EXE some/folder
+stone_assets verify original_data/SA_V1_00.EXE some/folder
 ```
 
-`export` unpacks the original into the same editable files, to look at or to
-work from; keep that folder out of the repository. `verify` reports whether a
-folder or package still equals the original.
+`export` unpacks the original into the same editable files; keep that
+folder out of the repository. `verify` reports whether a folder or package
+still equals the original.
 
-`stoneage.dat` is the game's own format: a file table and deflate-compressed
-contents with a byte scramble. It keeps players from casually opening or
-replacing files; it is not encryption.
-
-## Source layout
-
-- `src/machine.*`: a small real-mode machine (memory, planar VGA, DOS and
-  BIOS services) whose memory holds the game's variables.
-- `src/game.*`, `screens.cpp`, `video.cpp`: the game itself (a level; title,
-  menu and their screens; pages, sprites, colours and text).
-- `src/music.*`, `music_lift.inc`, `music_tables.inc`: the song format and
-  the music driver; its output is OPL register writes.
-- `src/audio.*`: the music synthesized with ymfm's YM3812 emulator
-  (`third_party/ymfm/`, one change), one register write a sample.
-- `src/assets.*`, `content.*`, `package.*`, `assets_main.cpp`: the editable
-  assets, the package format and `stone_assets`.
-- `src/play.cpp`, `host_*.hpp`, `gamepad.*`: the SDL host (window, keys,
-  gamepad, taps, audio, score file). The rest of `src/` does not use SDL.
-- `src/selector.cpp`, `stats.cpp`, `lines.cpp`: the map selector, the
-  statistics and the lines of the function-key screens with their cursor,
-  of enhanced mode.
-- `src/zip.*`: reading and writing zip files, for the web page's saves.
-- `web/`: the web page around the browser build (`shell.html`) and its
-  saves in IndexedDB (`saves.js`) and the original game from a zip
-  (`original.js`), its manifest and icons; see "Web version" above.
-- `src/stone.*`: byte buffers, files, BMP output, CRC-32.
-
-`src/game_data.inc`, `game_names.hpp`, `keyboard.hpp`, `music_lift.inc` and
-`music_tables.inc` were generated from the original by tools that are not
-part of this repository; in a fork, edit them like any other source.
+`stoneage.dat` is a file table and deflate-compressed contents with a byte
+scramble. The scramble deters casual editing; it is not encryption.
 
 ## Tests
 
-`stone_tests` needs nothing of the original game and is built with every
-preset; run it with `ctest --test-dir build/cmake -C Release` (or the build tree
-of the preset used). It tests the saved settings and the zip files (`tests/`).
-With the player, CTest also runs scripted runs of the free set that tap the
-screen (`tests/taps/`) and compares their screenshots by SHA-256
-(`tests/screenshot_test.cmake`). They use `stone_play --fresh`, which plays
-as if nothing were saved; a line `tick tap x y` of a `--keys` file taps that
-pixel of the game's picture.
+- `stone_tests` (`tests/`) checks `STONEAGE.ENH` reading and writing and the
+  zip code. It needs nothing of the original and is built with every native
+  preset.
+- With the player, CTest also runs two scripted taps of the free set
+  (`tests/taps/`) and compares their screenshots by SHA-256
+  (`tests/screenshot_test.cmake`).
 
-The comparison tests replay key scripts on the game and compare every 70 Hz
-tick with a run of the original executable under the same keys. They, their
-recorded fixtures and the scripts that make them are derived from the
-original game and are not part of this repository. With them in `research/` and the
-original files in `original_data/`, `.\build.ps1 -Test` (or the `test`
-presets) builds and runs them.
+```sh
+ctest --test-dir build/cmake -C Release
+```
+
+The comparison tests replay key scripts on the reconstruction and on the
+original executable and compare every tick. They, their fixtures and the
+tools that make them derive from the original and are not in this
+repository. With them in `research/` and the original in `original_data/`,
+the `test` preset (or `.\build.ps1 -Test`) builds and runs them.
 
 In Claude Code cloud sessions, `.claude/hooks/session-start.sh` builds the
-player without a display (SDL for the console only, in
-`build/cmake-headless`) and sets SDL's off-screen video and dummy audio
-drivers, so scripted runs (`--keys`, `--ticks`, `--screenshot`) and
-`stone_tests` work there. It builds in the background while the session
-starts; the build is done when `build/cmake-headless/ready` exists.
+player in the background without a display (`build/cmake-headless`, done
+when `build/cmake-headless/ready` exists) and sets SDL's `offscreen` video
+and `dummy` audio drivers, so scripted runs and `stone_tests` work there.
+
+## Source layout
+
+| Files | Contents |
+|---|---|
+| `machine.*` | A small real-mode machine (memory, planar VGA, DOS and BIOS services) whose memory holds the game's variables. |
+| `game.*`, `screens.cpp`, `video.cpp` | The game: a level; the title, menu and their screens; pages, sprites, colours and text. |
+| `music.*`, `music_lift.inc`, `music_tables.inc` | The song format and the music driver, which outputs OPL register writes. |
+| `audio.*` | Synthesis with ymfm's YM3812 emulator (`third_party/ymfm/`, one change). |
+| `assets.*`, `content.*`, `package.*`, `assets_main.cpp` | The editable assets, the package format and `stone_assets`. |
+| `selector.cpp`, `stats.cpp`, `lines.cpp`, `settings.*` | Enhanced mode: the map selector, statistics, the line cursor and `STONEAGE.ENH`. |
+| `play.cpp`, `host_*.hpp`, `gamepad.*` | The SDL host: window, keys, gamepad, touch, audio, files. Nothing else in `src/` uses SDL. |
+| `zip.*` | Zip reading and writing, for the web page's saves. |
+| `stone.*` | Byte buffers, files, BMP output, CRC-32, SHA-256. |
+
+`game_data.inc`, `game_names.hpp`, `keyboard.hpp`, `music_lift.inc` and
+`music_tables.inc` were generated from the original by tools that are not in
+this repository; edit them like any other source.
 
 ## Limits
 
-Native builds other than Windows have not been verified; the headless Linux
-build of the cloud sessions and the web build are the exceptions.
-
-In the browser:
-
-- Touch has been tried in Chromium's touch emulation only; still to be
-  checked by hand on an Android phone and an iPhone, as are gamepads in
-  the browser.
-- The browser keeps some keys (Ctrl+W, Ctrl+T, Ctrl+N), which the game does
-  not use. In fullscreen Esc leaves fullscreen first, except in Chromium,
-  where the fullscreen button locks it for the game.
-- Saves belong to one browser and one site, and the browser may delete
-  them; **Export saves** keeps them in a zip.
-- 70 ticks a second on a 60 Hz screen: one frame in six shows two ticks, as
-  on the desktop.
-- Checked in Chromium only. Still to be checked by hand: the keys in
-  Firefox, Esc in fullscreen with the Keyboard Lock API in a headed
-  Chromium, and adding a real zip of the original game (Options F2 should
-  then offer ORIG).
+- Of the native builds only Windows has been tested, plus the headless
+  Linux build of the cloud sessions.
+- The web version has been tested in Chromium only. Not yet checked by
+  hand: Firefox, touch on real Android and iOS devices, gamepads in the
+  browser, and adding a real zip of the original game.
+- The browser keeps some shortcuts (Ctrl+W, Ctrl+T, Ctrl+N), which the game
+  does not use. In fullscreen, Esc leaves fullscreen first, except in
+  Chromium, where the Keyboard Lock API gives it to the game.
+- Browser saves belong to one browser and site and may be cleared; use
+  **Export saves**.
+- At 70 ticks a second on a 60 Hz screen, one frame in six shows two ticks,
+  on the desktop as in the browser.
 
 ## Distribution
 
-This project publishes its source and the web version built from it by the
-workflow; there are no desktop downloads. If you build the player and pass
-it on, keep `LICENSE`, `LEGAL.md` and the `licenses` folder
-(copied into `build/`) with it. See [LEGAL.md](LEGAL.md).
+This project publishes its source and the web version; there are no
+desktop downloads. If you pass on a player you built, keep `LICENSE`,
+`LEGAL.md` and the `licenses` folder (copied into `build/`) with it.
