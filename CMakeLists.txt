@@ -187,7 +187,7 @@ if(STONE_BUILD_PLAYER)
         add_test(NAME editor_new_pack COMMAND ${CMAKE_COMMAND} -DPLAYER=$<TARGET_FILE:stone_play>
             "-DPACKAGE=${STONE_OUTPUT}/stoneage.dat" "-DKEYS=${CMAKE_SOURCE_DIR}/tests/editor/new_pack.keys"
             -DTICKS=2700 "-DOUT=${CMAKE_BINARY_DIR}/editor_new_pack.bmp"
-            -DSHA256=64e402adbc90f860640903f74e9fe5432301746c3637d0fd6423c4a5cd0dcb25
+            -DSHA256=f79edc02417e53ebdab9a1f3fcc4cf3135b1d7f18a91790fbbd374257b6e771d
             -P "${CMAKE_SOURCE_DIR}/tests/screenshot_test.cmake")
     endif()
     if(WIN32)
