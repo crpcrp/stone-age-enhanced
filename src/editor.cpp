@@ -19,13 +19,7 @@
 
 namespace stone {
 namespace {
-// Scan codes; a release has 80h added.
-const uint8_t esc = 0x01, digit_1 = 0x02, digit_0 = 0x0b, tab = 0x0f, key_y = 0x15,
-              enter = 0x1c, ctrl = 0x1d, key_l = 0x26, left_shift = 0x2a, key_z = 0x2c,
-              right_shift = 0x36, space = 0x39, f1 = 0x3b, f2 = 0x3c, f3 = 0x3d, f4 = 0x3e,
-              f5 = 0x3f, f6 = 0x40, f7 = 0x41, f9 = 0x43, f10 = 0x44, arrow_up = 0x48,
-              page_up = 0x49, arrow_left = 0x4b, arrow_right = 0x4d, arrow_down = 0x50,
-              page_down = 0x51, del = 0x53, released = 0x80;
+using namespace scan;
 const uint8_t leave_key = f9; // the menu's ESC LEAVE: Esc itself closes the menu
 // Colours: the cursor's own (the level uses 0-63, 254 and 255), and of the
 // level's palette, which keeps these in every set (ASSETS.md): white, grey,
@@ -43,16 +37,6 @@ const unsigned previous_x = 4, hand_x = 24, next_x = 44, tile_y = 3, fields_x = 
 // Ticks an arrow is held before it repeats, and between repeats.
 const unsigned first_repeat = 18, repeat_every = 4;
 const std::size_t undo_depth = 500;
-
-std::string upper(std::string text) {
-    for (char& c : text)
-        c = char(std::toupper(static_cast<unsigned char>(c)));
-    return text;
-}
-
-bool same_file(const std::string& a, const std::string& b) {
-    return upper(a) == upper(b);
-}
 
 class Editor {
 public:
@@ -517,7 +501,7 @@ void Editor::save() {
         to = pack_file_name(name);
         if (g.m.level_sets)
             for (const Machine::LevelSetEntry& entry : g.m.level_sets())
-                if (same_file(entry.pack, to)) {
+                if (upper(entry.pack) == upper(to)) {
                     message("LEVELS/" + upper(to) + " IS THERE", red);
                     return;
                 }

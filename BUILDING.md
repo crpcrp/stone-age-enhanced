@@ -229,7 +229,7 @@ and `dummy` audio drivers, so scripted runs and `stone_tests` work there.
 | `selector.cpp`, `packs.cpp`, `stats.cpp`, `lines.cpp`, `settings.*` | Enhanced mode: the map selector, its list of level sets, statistics, the line cursor and `STONEAGE.ENH`. |
 | `play.cpp`, `host_*.hpp`, `gamepad.*` | The SDL host: window, keys, gamepad, touch, audio, files. Nothing else in `src/` uses SDL. |
 | `zip.*` | Zip reading and writing, for the web page's saves. |
-| `stone.*` | Byte buffers, files, BMP output, CRC-32, SHA-256. |
+| `stone.*` | Byte buffers, files, BMP output, CRC-32. |
 
 `game_data.inc`, `game_names.hpp`, `keyboard.hpp`, `music_lift.inc` and
 `music_tables.inc` were generated from the original by tools that are not in

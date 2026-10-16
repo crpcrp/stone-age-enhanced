@@ -8,6 +8,16 @@
 #include <vector>
 
 namespace stone {
+// Keyboard scan bytes as the game reads them at CS:0906; a release has 80h added.
+namespace scan {
+const uint8_t esc = 0x01, digit_1 = 0x02, digit_0 = 0x0b, backspace = 0x0e, tab = 0x0f,
+              key_q = 0x10, key_y = 0x15, key_p = 0x19, enter = 0x1c, ctrl = 0x1d, key_s = 0x1f,
+              key_l = 0x26, left_shift = 0x2a, key_z = 0x2c, key_c = 0x2e, key_n = 0x31,
+              right_shift = 0x36, space = 0x39, f1 = 0x3b, f2 = 0x3c, f3 = 0x3d, f4 = 0x3e,
+              f5 = 0x3f, f6 = 0x40, f7 = 0x41, f8 = 0x42, f9 = 0x43, f10 = 0x44, home = 0x47,
+              arrow_up = 0x48, page_up = 0x49, arrow_left = 0x4b, arrow_right = 0x4d,
+              end_key = 0x4f, arrow_down = 0x50, page_down = 0x51, del = 0x53, released = 0x80;
+} // namespace scan
 // A little-endian 16-bit variable in the machine's memory, or with [] a table of them.
 struct Word {
     uint8_t* at;

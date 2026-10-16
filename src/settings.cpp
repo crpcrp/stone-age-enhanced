@@ -89,6 +89,11 @@ std::string level_key(const char* key, uint32_t levels) {
     std::snprintf(text, sizeof text, "%s %08x", key, unsigned(levels));
     return text;
 }
+
+// `key <crc> <level>`: the key of a line about one map of a level set.
+std::string map_key(const char* key, uint32_t levels, unsigned level) {
+    return level_key(key, levels) + ' ' + std::to_string(level);
+}
 } // namespace
 
 unsigned Settings::level(const char* key, uint32_t levels) const {
@@ -116,12 +121,6 @@ void Settings::set_last(uint32_t levels, unsigned level) {
 }
 
 namespace {
-std::string best_key(uint32_t levels, unsigned level) {
-    char text[32];
-    std::snprintf(text, sizeof text, "best %08x %u", unsigned(levels), level);
-    return text;
-}
-
 // A number of up to nine digits; false for anything else.
 bool read_number(const std::string& text, unsigned& number) {
     if (text.empty() || text.size() > 9 || text.find_first_not_of("0123456789") != std::string::npos)
@@ -134,7 +133,7 @@ bool read_number(const std::string& text, unsigned& number) {
 Settings::Best Settings::best(uint32_t levels, unsigned level) const {
     std::string value;
     Best best;
-    if (!find(best_key(levels, level), value))
+    if (!find(map_key("best", levels, level), value))
         return best;
     const std::size_t space = value.find(' ');
     if (space == std::string::npos || !read_number(value.substr(0, space), best.ticks) ||
@@ -158,22 +157,15 @@ unsigned Settings::improve_best(uint32_t levels, unsigned level, unsigned ticks,
         beaten |= higher;
     }
     if (beaten)
-        set(best_key(levels, level), std::to_string(best.ticks) + ' ' + std::to_string(best.points));
+        set(map_key("best", levels, level),
+            std::to_string(best.ticks) + ' ' + std::to_string(best.points));
     return beaten;
 }
-
-namespace {
-std::string par_key(uint32_t levels, unsigned level) {
-    char text[32];
-    std::snprintf(text, sizeof text, "par %08x %u", unsigned(levels), level);
-    return text;
-}
-} // namespace
 
 Settings::Par Settings::par(uint32_t levels, unsigned level) const {
     std::string value;
     Par par;
-    if (!find(par_key(levels, level), value))
+    if (!find(map_key("par", levels, level), value))
         return par;
     if (value == "unsolvable" || value == "unknown")
         par.kind = value == "unsolvable" ? Par::unsolvable : Par::unknown;
@@ -187,9 +179,9 @@ Settings::Par Settings::par(uint32_t levels, unsigned level) const {
 void Settings::set_par(uint32_t levels, unsigned level, const Par& par) {
     if (par.kind == Par::none)
         return;
-    set(par_key(levels, level), par.kind == Par::solvable     ? std::to_string(par.ticks)
-                                : par.kind == Par::unsolvable ? "unsolvable"
-                                                              : "unknown");
+    set(map_key("par", levels, level), par.kind == Par::solvable     ? std::to_string(par.ticks)
+                                       : par.kind == Par::unsolvable ? "unsolvable"
+                                                                     : "unknown");
 }
 
 namespace {
@@ -216,19 +208,13 @@ std::string write_numbers(const uint64_t* numbers, unsigned count) {
         text += (n ? " " : "") + std::to_string(numbers[n]);
     return text;
 }
-
-std::string stats_key(uint32_t levels, unsigned level) {
-    char text[32];
-    std::snprintf(text, sizeof text, "stats %08x %u", unsigned(levels), level);
-    return text;
-}
 } // namespace
 
 Settings::MapStats Settings::map_stats(uint32_t levels, unsigned level) const {
     std::string value;
     uint64_t numbers[5];
     MapStats stats;
-    if (find(stats_key(levels, level), value) && read_numbers(value, numbers, 5)) {
+    if (find(map_key("stats", levels, level), value) && read_numbers(value, numbers, 5)) {
         stats.attempts = numbers[0];
         stats.clears = numbers[1];
         stats.lives_lost = numbers[2];
@@ -241,7 +227,7 @@ Settings::MapStats Settings::map_stats(uint32_t levels, unsigned level) const {
 void Settings::set_map_stats(uint32_t levels, unsigned level, const MapStats& stats) {
     const uint64_t numbers[5] = {stats.attempts, stats.clears, stats.lives_lost, stats.give_ups,
                                  stats.ticks};
-    set(stats_key(levels, level), write_numbers(numbers, 5));
+    set(map_key("stats", levels, level), write_numbers(numbers, 5));
 }
 
 Settings::Totals Settings::totals() const {

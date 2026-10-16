@@ -9,17 +9,13 @@
 #include "level_edit.hpp"
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <string>
 #include <vector>
 
 namespace stone {
 namespace {
-// Scan codes.
-const uint8_t esc = 0x01, tab = 0x0f, key_p = 0x19, enter = 0x1c, key_l = 0x26, key_n = 0x31,
-              space = 0x39,
-              home = 0x47,
-              arrow_up = 0x48, page_up = 0x49, arrow_left = 0x4b, arrow_right = 0x4d,
-              end_key = 0x4f, arrow_down = 0x50, page_down = 0x51;
+using namespace scan;
 // Records in the level resource: a pack of fewer is padded (E7).
 const unsigned records = 100, per_page = 20, per_row = 5;
 // A thumbnail is the 20x11 board at three pixels a cell.
@@ -446,6 +442,12 @@ void MapSelector::shake(unsigned map) {
 std::string tick_seconds(unsigned ticks) {
     const unsigned tenths = (ticks + 3) / 7;
     return std::to_string(tenths / 10) + '.' + std::to_string(tenths % 10);
+}
+
+std::string upper(std::string text) {
+    for (char& c : text)
+        c = char(std::toupper(static_cast<unsigned char>(c)));
+    return text;
 }
 
 void Game::map_selector() const {

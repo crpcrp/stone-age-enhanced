@@ -10,9 +10,7 @@
 
 namespace stone {
 namespace {
-// Scan codes.
-const uint8_t esc = 0x01, backspace = 0x0e, enter = 0x1c, space = 0x39, f1 = 0x3b, f9 = 0x43,
-              f10 = 0x44, arrow_up = 0x48, arrow_down = 0x50, del = 0x53;
+using namespace scan;
 const uint8_t marker_slot = 253;
 } // namespace
 

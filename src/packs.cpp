@@ -8,15 +8,12 @@
 #include "game.hpp"
 #include <algorithm>
 #include <array>
-#include <cctype>
 #include <string>
 #include <vector>
 
 namespace stone {
 namespace {
-// Scan codes.
-const uint8_t esc = 0x01, enter = 0x1c, key_l = 0x26, space = 0x39, home = 0x47, arrow_up = 0x48,
-              page_up = 0x49, end_key = 0x4f, arrow_down = 0x50, page_down = 0x51;
+using namespace scan;
 // The list's own palette, as the selector's (the menu screens use 0-63 only).
 const uint8_t text_slot = 1, dim_slot = 2, mark_slot = 3, bar_slot = 4, problem_slot = 5;
 // Rows of the list, 18 pixels apart from y=44; columns of the 8x16 font.
@@ -27,11 +24,6 @@ const unsigned help_y = 178, problem_y = 160;
 
 unsigned row_y(unsigned row) { return first_row + row_height * row; }
 
-std::string upper(std::string text) {
-    for (char& c : text)
-        c = char(std::toupper(static_cast<unsigned char>(c)));
-    return text;
-}
 // `text` right-aligned so that it ends before column `end`.
 unsigned right_column(const std::string& text, unsigned end) {
     return end - unsigned(std::min<std::size_t>(text.size(), end));
