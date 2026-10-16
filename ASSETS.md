@@ -76,25 +76,9 @@ The five free themes differ in construction as well as colour:
 
 Walkable floors have quiet centres and low edges; walls have raised,
 textured silhouettes. Cracks are reserved for collapsing floors. The red
-and green keys/gates retain their colour identities across themes.
-
-The artwork was generated with the built-in image generator, reduced to
-16x16 cells and mapped to the indexed palette without dithering. Slots 1-3
-extend the material ramps (including roots in theme 5); slots 4-9 and 15
-retain their shared colours. The limestone theme also has a neutral stone
-ramp and matching background tint. Large decorations were generated whole
-at 48x48 before splitting into nine cells. Exact EXIT lettering and reserved
-empty/outside cells are retained.
-
-Art brief: prehistoric puzzle-game relics with bold top-left lighting,
-quiet low roads, unmistakably raised walls, readable theme-specific arrows,
-and five different decorative silhouettes. Separate prompts specified
-sandstone, ammonite-bearing limestone, pointed glacial crystals, hexagonal
-basalt columns, and rounded mossy megaliths bound by roots.
-
-[Before (left) and after (right), at integer scale](docs/images/tiles-comparison.png).
-[All five themes rendered in-game, with their assembled decorations](docs/images/tiles-in-game.png).
-[Path, wall, arrow and decoration comparison](docs/images/tile-themes.png).
+and green keys/gates keep their colours in every theme. Slots 1-3 extend
+each theme's material ramp (roots in theme 5); the limestone theme also has
+a neutral stone ramp and a matching background tint.
 
 ## Sprites: `sprites/000.bmp` to `184.bmp`
 
@@ -185,11 +169,8 @@ own ("A.H."), not Creative's CMF.
   output level, tremolo, vibrato, envelope scaling, and FM (1) or additive (0).
 - Volume 0-127. Effect 32 is none; 30 and 34 detune down and up.
 - In rhythm mode channels 6-10 are bass drum, snare, tom, cymbal, hi-hat.
-- An attack rate of 15 can freeze a note part-way up, as on the chip: the
-  attack stops when its rate, which also grows with the pitch, reaches the
-  top while the note is rising. The driver changes the pitch of the snare
-  and hi-hat channel right after starting the snare, so the free songs give
-  the snare 14.
+- An attack rate of 15 is instant whatever the key scaling, as on the chip
+  ([third_party/ymfm/README.md](third_party/ymfm/README.md)).
 
 The song titles shown in the jukebox are in `texts.txt`.
 

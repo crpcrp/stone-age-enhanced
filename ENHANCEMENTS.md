@@ -245,7 +245,7 @@ files in a folder `levels/` beside the player.
   it, and cannot be chosen. Enter plays the set from now on, Esc or L goes
   back; the selector opens again on the set chosen. The choice is saved as
   `pack free`, `pack original` or `pack <file name>` and is the set for F1,
-  F2 and the password screen. Options F2 (setup) no longer chooses the maps.
+  F2 and the password screen.
 - **Loading:** the host (`play.cpp`) reads the set and gives it to
   `Assets`, which hands out its records in place of the resource at file
   offset `157e0` and writes its passwords over `level_passwords()`
@@ -357,8 +357,8 @@ types a word.
 - **Selector:** the top line reads `MAP 12  41.3s  1250  PAR 38.0s`, closer
   together or without the points when that is too long; `UNSOLVABLE` when
   there is no way through. Nothing for a map not reached, or not solved yet.
-- **Statistics:** a `PAR` column after `BEST` (`NONE` when unsolvable). To
-  make room, `CLEAR` is now `WON`.
+- **Statistics:** a `PAR` column after `BEST` (`NONE` when unsolvable); to
+  make room the clears column is headed `WON`.
 
 **Results:** every free level is solvable within its time, each solution
 clears it in the real game, and the game takes exactly the ticks the model
