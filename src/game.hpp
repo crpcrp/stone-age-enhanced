@@ -31,6 +31,8 @@ bool decimal_subtract(uint8_t& digit, unsigned amount);
 // Ticks of 70 a second as seconds and tenths: 2891 is "41.3" (selector.cpp;
 // ENHANCEMENTS.md, E3 and E4).
 std::string tick_seconds(unsigned ticks);
+// Letters in upper case, as the game's fonts have them (selector.cpp).
+std::string upper(std::string text);
 
 // The original's random numbers (CS:211e): one sequence for the whole session,
 // started from the seconds of the DOS clock.

@@ -14,10 +14,7 @@ namespace {
 const unsigned menu_picture = 0x28720, password_picture = 0x2c330, options_picture = 0x2eb40,
                jukebox_picture = 0x30f10, scores_picture = 0x328d0, eclipse_picture = 0x38c30,
                bones_park_picture = 0x373e0, dinosaur_picture = 0x396a0, credits_picture = 0x3d770;
-// Scan codes.
-const uint8_t esc = 0x01, backspace = 0x0e, key_c = 0x2e, f1 = 0x3b, f2 = 0x3c, f3 = 0x3d,
-              f4 = 0x3e, f5 = 0x3f, f6 = 0x40, f7 = 0x41, f8 = 0x42, f9 = 0x43, f10 = 0x44,
-              del = 0x53;
+using namespace scan;
 const uint8_t digit_glyph = 0x1a; // the digit 0 in the sprite font of the pages
 // A bird of the score screen: nine words in the work buffer.
 enum { bird_x, bird_y, bird_drawn_x, bird_drawn_y, bird_angles, bird_frame = 8 };

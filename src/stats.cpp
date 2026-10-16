@@ -10,10 +10,7 @@
 
 namespace stone {
 namespace {
-// Scan codes.
-const uint8_t esc = 0x01, tab = 0x0f, key_s = 0x1f, home = 0x47, arrow_up = 0x48, page_up = 0x49,
-              arrow_left = 0x4b, arrow_right = 0x4d, end_key = 0x4f, arrow_down = 0x50,
-              page_down = 0x51;
+using namespace scan;
 const unsigned per_page = 10, columns = 31;
 const unsigned scores_picture = 0x328d0; // as in screens.cpp
 

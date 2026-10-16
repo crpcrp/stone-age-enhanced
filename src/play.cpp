@@ -796,7 +796,7 @@ void Player::tap(float x, float y) {
 
 void Player::release_keys() {
     queued.clear();
-    if (scan && !(scan & 128))
+    if (scan)
         scan |= 128;
 }
 
@@ -837,8 +837,7 @@ void add_original() {
     }
     if (!exe)
         throw std::runtime_error("The zip holds no SA_V1_00.EXE, at its top or in one folder.");
-    if (exe->size() != 452788 ||
-        stone::sha256(*exe) != "a979bc922b329297bbda2eb8b7f8375c466721bd439c9fd1b47a8db26444f927")
+    if (exe->size() != 452788 || stone::crc32(exe->data(), exe->size()) != 0x0e5149ac)
         throw std::runtime_error("The zip's SA_V1_00.EXE is not the original Stone Age, version "
                                  "1.00 (452,788 bytes).");
     std::map<std::string, const stone::Bytes*> files = {{"SA_V1_00.EXE", exe}};
@@ -997,9 +996,7 @@ extern "C" EMSCRIPTEN_KEEPALIVE const char* stone_import_saves() {
     }
     return saves_problem.c_str();
 }
-#endif
 
-#ifdef __EMSCRIPTEN__
 // Add the original game from /tmp/original.zip: asked here, done at the next
 // frame, which then calls Module.originalPacked (web/original.js).
 extern "C" EMSCRIPTEN_KEEPALIVE void stone_add_original() { original_asked = true; }
@@ -1020,9 +1017,7 @@ extern "C" EMSCRIPTEN_KEEPALIVE void stone_focus(int focus) {
     if (focus)
         player->clock.reset();
 }
-#endif
 
-#ifdef __EMSCRIPTEN__
 // A button of the page pressed or released (web/shell.html; ENHANCEMENTS.md,
 // E6): a scan byte, as a key of the keyboard sends it.
 extern "C" EMSCRIPTEN_KEEPALIVE void stone_key(int code, int down) {

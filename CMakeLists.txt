@@ -80,7 +80,7 @@ if(BUILD_TESTING AND NOT EMSCRIPTEN)
     add_executable(stone_tests tests/settings_tests.cpp tests/zip_tests.cpp tests/levels_tests.cpp
         tests/solver_tests.cpp tests/level_edit_tests.cpp)
     target_link_libraries(stone_tests PRIVATE stone_core)
-    add_test(NAME settings COMMAND stone_tests "${STONE_OUTPUT}/stoneage.dat")
+    add_test(NAME stone_tests COMMAND stone_tests "${STONE_OUTPUT}/stoneage.dat")
 endif()
 
 if(STONE_BUILD_PLAYER)
@@ -194,19 +194,10 @@ if(STONE_BUILD_PLAYER)
         add_custom_command(TARGET stone_play POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL3::SDL3> $<TARGET_FILE_DIR:stone_play>)
     endif()
-    # The notices go beside the player; a partial copy of the sources still builds.
-    foreach(notice third_party/licenses LICENSE LEGAL.md)
-        get_filename_component(notice_name "${notice}" NAME)
-        if(IS_DIRECTORY "${CMAKE_SOURCE_DIR}/${notice}")
-            add_custom_command(TARGET stone_play POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory
-                "${CMAKE_SOURCE_DIR}/${notice}" "${STONE_OUTPUT}/${notice_name}")
-        elseif(EXISTS "${CMAKE_SOURCE_DIR}/${notice}")
-            add_custom_command(TARGET stone_play POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${CMAKE_SOURCE_DIR}/${notice}" "${STONE_OUTPUT}/${notice_name}")
-        else()
-            message(WARNING "${notice} is missing; it is not copied beside the player.")
-        endif()
-    endforeach()
+    # The notices go beside the player.
+    add_custom_command(TARGET stone_play POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/third_party/licenses" "${STONE_OUTPUT}/licenses"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/LICENSE" "${CMAKE_SOURCE_DIR}/LEGAL.md" "${STONE_OUTPUT}")
 endif()
 
 if(STONE_BUILD_TESTS)

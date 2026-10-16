@@ -7,10 +7,7 @@
 
 namespace stone {
 namespace {
-// Scan codes.
-const uint8_t esc = 0x01, key_q = 0x10, key_p = 0x19, enter = 0x1c, key_l = 0x26, space = 0x39,
-              arrow_up = 0x48, page_up = 0x49, arrow_left = 0x4b, arrow_right = 0x4d,
-              arrow_down = 0x50, page_down = 0x51;
+using namespace scan;
 const uint64_t millisecond = 1000000;
 // Back must be held this long to retry, so it is not pressed by accident.
 const uint64_t back_hold = 500 * millisecond;
